@@ -219,8 +219,8 @@ mas não são enviadas como sugestões ao modelo. A resposta é validada novamen
 pelo motor: posições ocupadas e colunas cheias não são aceitas.
 
 A interface permanece disponível durante a consulta. O delay continua sendo o
-tempo mínimo do turno, sobreposto à geração. A lista tem prazo total de 10 s;
-cada jogada, 180 s, incluindo o carregamento do modelo. Falhas de conexão,
+tempo mínimo do turno, sobreposto à geração. A lista tem prazo total de 100 s;
+cada jogada, 1.800 s (30 minutos), incluindo o carregamento do modelo. Falhas de conexão,
 timeout e respostas inválidas **pausam a partida**, preservando o tabuleiro.
 Use **Tentar novamente** para repetir a mesma posição, ou **Nova configuração**
 para abandonar a partida. Não existe jogada automática de reserva. Fechar ou
@@ -304,7 +304,7 @@ ampliação usa o protocolo do Cogito v1: primeiro solicita análise com
 esquema JSON. Depois envia essa análise ao mesmo modelo para selecionar a
 jogada em uma segunda consulta, com o esquema JSON. O reconhecimento pelo
 nome não abrange modelos renomeados arbitrariamente nem Cogito 2.1.
-As consultas compartilham o prazo total de 180 segundos e o cancelamento do
+As consultas compartilham o prazo total de 1.800 segundos (30 minutos) e o cancelamento do
 turno. Uma falha em qualquer etapa pausa a partida, sem substituição automática.
 
 O motor valida também o filtro assistido: uma resposta legal que ignore esse

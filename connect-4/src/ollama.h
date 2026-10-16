@@ -3,7 +3,7 @@
 #include "game.h"
 
 #define OLLAMA_DEFAULT_URL "http://127.0.0.1:11434"
-enum { OLLAMA_LIST_TIMEOUT_MS = 10000, OLLAMA_MOVE_TIMEOUT_MS = 180000 };
+enum { OLLAMA_LIST_TIMEOUT_MS = 100000, OLLAMA_MOVE_TIMEOUT_MS = 1800000 };
 typedef struct { gboolean assisted, thinking; } OllamaOptions;
 typedef enum { OLLAMA_REASONING_DEFAULT, OLLAMA_REASONING_NATIVE, OLLAMA_REASONING_COGITO } OllamaReasoning;
 typedef struct {
