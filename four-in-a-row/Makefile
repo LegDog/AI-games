@@ -39,6 +39,7 @@ test-ui:
 	else \
 		$(MESON) setup "$(UI_BUILD_DIR)" -Dapp=true -Dui_tests=true $(MESON_ARGS); \
 	fi
+	$(MESON) compile -C "$(UI_BUILD_DIR)"
 	$(MESON) test -C "$(UI_BUILD_DIR)" --print-errorlogs
 
 test-ollama: build
