@@ -10,6 +10,9 @@ compile_commands.json
 *.so
 *.so.*
 test-game
+test-minimax
+test-ollama
+test-ollama-log
 test-ui
 
 # Local game histories, including numbered archives
@@ -28,3 +31,6 @@ histórico*.md
 /.env
 /.env.*
 !/.env.example
+
+# Full Ollama request/response traces
+ollama.log

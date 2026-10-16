@@ -154,11 +154,31 @@ static gboolean stacked_threat(const Game *game, int attacker, unsigned threats)
     return FALSE;
 }
 
-/* Prove only continuous forcing attacks: every non-winning attacker move
- * must threaten an immediate win, so the defender must block or win first.
+/* Winning targets regardless of missing support. These guide preparatory
+ * moves only; an inaccessible target is never itself proof of a win. */
+static guint64 winning_targets(const Game *game, int player)
+{
+    guint64 targets = 0;
+    for (unsigned row = 0; row < GAME_ROWS; row++) {
+        for (unsigned col = 0; col < GAME_COLS; col++) {
+            if (game->cells[row][col])
+                continue;
+            Game next = *game;
+            next.cells[row][col] = player;
+            if (wins_at(&next, row, col, player))
+                targets |= G_GUINT64_CONSTANT(1) << (row * GAME_COLS + col);
+        }
+    }
+    return targets;
+}
+
+/* With preparations == 0, prove only continuous forcing attacks. Otherwise
+ * also try moves that create a winning target or support an existing target.
+ * A defender without an immediate threat may choose ANY legal reply: every
+ * reply must be proved losing, including counterattacks and column fills.
  * FALSE means no proof within the limits, not that the position is safe. */
 static gboolean forcing_win(const Game *game, int attacker, int player,
-                            unsigned depth, unsigned *budget)
+                            unsigned depth, unsigned preparations, unsigned *budget)
 {
     if (!depth || !*budget)
         return FALSE;
@@ -176,13 +196,49 @@ static gboolean forcing_win(const Game *game, int attacker, int player,
             Game next = *game;
             next.cells[row][col] = attacker;
             if (winning_columns(&next, attacker) &&
-                forcing_win(&next, attacker, -attacker, depth - 1, budget))
+                forcing_win(&next, attacker, -attacker, depth - 1, preparations, budget))
                 return TRUE;
+        }
+        if (!preparations || !*budget)
+            return FALSE;
+        guint64 targets = winning_targets(game, attacker);
+        for (unsigned col = 0; col < GAME_COLS; col++) {
+            int row = game_drop_row(game, col);
+            if (row < 0)
+                continue;
+            Game next = *game;
+            next.cells[row][col] = attacker;
+            if (winning_columns(&next, attacker))
+                continue; /* Already tried the forcing moves above. */
+            guint64 supported = 0;
+            for (int above = 0; above < row; above++)
+                supported |= G_GUINT64_CONSTANT(1) << (above * GAME_COLS + col);
+            if (!(targets & supported) && !(winning_targets(&next, attacker) & ~targets))
+                continue;
+            if (forcing_win(&next, attacker, -attacker, depth - 1, preparations - 1, budget))
+                return TRUE;
+            if (!*budget)
+                break;
         }
         return FALSE;
     }
-    if (!attack || depth < 2 || winning_columns(game, -attacker))
+    if (depth < 2 || winning_columns(game, -attacker))
         return FALSE;
+    if (!attack) {
+        /* Also check free replies after the last allowed preparation. */
+        gboolean has_reply = FALSE;
+        for (unsigned col = 0; col < GAME_COLS; col++) {
+            int row = game_drop_row(game, col);
+            if (row < 0)
+                continue;
+            has_reply = TRUE;
+            Game reply = *game;
+            reply.cells[row][col] = -attacker;
+            if (!forcing_win(&reply, attacker, attacker, depth - 1, preparations, budget))
+                return FALSE;
+        }
+        return has_reply;
+    }
     if (multiple_threats(attack))
         return TRUE;
     unsigned col = 0;
@@ -191,7 +247,7 @@ static gboolean forcing_win(const Game *game, int attacker, int player,
     Game blocked = *game;
     int row = game_drop_row(game, col);
     blocked.cells[row][col] = -attacker;
-    return forcing_win(&blocked, attacker, attacker, depth - 1, budget);
+    return forcing_win(&blocked, attacker, attacker, depth - 1, preparations, budget);
 }
 
 static void evaluate_forcing(const Game *next, int player, Score *score)
@@ -204,12 +260,26 @@ static void evaluate_forcing(const Game *next, int player, Score *score)
     score->forcing_win = !score->immediate_loss && (score->fork || score->stacked);
     if (!score->forcing_loss && !score->forcing_win) {
         unsigned budget = FORCING_NODE_BUDGET;
-        score->forcing_loss = forcing_win(next, -player, -player, FORCING_MAX_PLIES, &budget);
+        score->forcing_loss = forcing_win(next, -player, -player, FORCING_MAX_PLIES, 0, &budget);
         score->forcing_limited |= budget == 0;
         if (!score->forcing_loss) {
             budget = FORCING_NODE_BUDGET;
-            score->forcing_win = forcing_win(next, player, -player, FORCING_MAX_PLIES, &budget);
+            score->forcing_win = forcing_win(next, player, -player, FORCING_MAX_PLIES, 0, &budget);
             score->forcing_limited |= budget == 0;
+        }
+    }
+    if (!score->forcing_loss && !score->forcing_win) {
+        unsigned budget = PREPARATION_NODE_BUDGET;
+        score->prepared_loss = forcing_win(next, -player, -player, FORCING_MAX_PLIES,
+                                          PREPARATION_MAX_MOVES, &budget);
+        score->forcing_limited |= budget == 0;
+        score->forcing_loss = score->prepared_loss;
+        if (!score->forcing_loss) {
+            budget = PREPARATION_NODE_BUDGET;
+            score->prepared_win = forcing_win(next, player, -player, FORCING_MAX_PLIES,
+                                             PREPARATION_MAX_MOVES, &budget);
+            score->forcing_limited |= budget == 0;
+            score->forcing_win = score->prepared_win;
         }
     }
 }
@@ -357,10 +427,10 @@ static void record_board(GString *text, const Game *game)
 }
 
 void game_record(GString *history, const Game *before, const Score scores[GAME_COLS],
-                 unsigned column, gboolean human)
+                 unsigned column, PlayerKind controller)
 {
     g_string_append_printf(history, "### Jogada %u — %s (%s)\n\nTabuleiro anterior (V: vermelho; A: amarelo):\n\n",
-        before->moves + 1, game_player_name(before->turn), human ? "humano" : "automático");
+        before->moves + 1, game_player_name(before->turn), player_kind_name(controller));
     record_board(history, before);
     g_string_append(history,
         "Avaliação global após a queda: pesos 10/100/1000/10000 para 1/2/3/4 peças, "
@@ -369,9 +439,12 @@ void game_record(GString *history, const Game *before, const Score scores[GAME_C
         "Na abertura, componentes estratégicos zerados.\n\n"
         "Garfo ou empilhamento próprio: +1e5 uma vez; alguma resposta perigosa: −1e5 uma vez.\n\n"
         "Sequências forçadas: +1e6 por vitória própria e −2e7 por derrota demonstrada; "
-        "até 12 meias-jogadas e 1024 nós por análise. Limite atingido não significa segurança.\n\n"
-        "| Coluna | Linha de queda | Vazias | Próprias 1/2/3/4 | Adversárias 1/2/3/4 | Próprias sem/com apoio ausente | Adversárias sem/com apoio ausente | Potencial próprio | Potencial adversário | Vitória ×1e9 | Bloqueio ×1e7 | Garfo | Empilhamento | Respostas com garfo/empilhamento | Respostas com empilhamento | Derrota imediata ×−1e8 | Vitória forçada ×1e6 | Derrota forçada ×−2e7 | Limite de nós atingido | Posicional | Aleatório | Total |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n");
+        "até 12 meias-jogadas e 1024 nós na busca contínua; extensão com até 2 jogadas "
+        "preparatórias e 4096 nós por análise. Preparações criam alvos de vitória ou fornecem "
+        "apoio; todas as respostas livres do defensor são verificadas. "
+        "Limite atingido não significa segurança.\n\n"
+        "| Coluna | Linha de queda | Vazias | Próprias 1/2/3/4 | Adversárias 1/2/3/4 | Próprias sem/com apoio ausente | Adversárias sem/com apoio ausente | Potencial próprio | Potencial adversário | Vitória ×1e9 | Bloqueio ×1e7 | Garfo | Empilhamento | Respostas com garfo/empilhamento | Respostas com empilhamento | Derrota imediata ×−1e8 | Vitória forçada ×1e6 | Derrota forçada ×−2e7 | Vitória com preparação | Derrota com preparação | Limite de nós atingido | Posicional | Aleatório | Total |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n");
     for (unsigned col = 0; col < GAME_COLS; col++) {
         const Score *s = &scores[col];
         if (!s->legal)
@@ -386,14 +459,15 @@ void game_record(GString *history, const Game *before, const Score scores[GAME_C
         g_ascii_dtostr(own, sizeof own, v->own_potential);
         g_ascii_dtostr(opponent, sizeof opponent, v->opponent_potential);
         g_string_append_printf(history,
-            "| %u | %d | %u | %u/%u/%u/%u | %u/%u/%u/%u | %u/%u | %u/%u | %s | %s | %u | %u | %u | %u | %u | %u | %u | %u | %u | %u | %s | %s | %s |\n",
+            "| %u | %d | %u | %u/%u/%u/%u | %u/%u/%u/%u | %u/%u | %u/%u | %s | %s | %u | %u | %u | %u | %u | %u | %u | %u | %u | %u | %u | %u | %s | %s | %s |\n",
             col + 1, s->row + 1, v->empty_windows,
             v->own_windows[1], v->own_windows[2], v->own_windows[3], v->own_windows[4],
             v->opponent_windows[1], v->opponent_windows[2], v->opponent_windows[3], v->opponent_windows[4],
             v->own_ready, v->own_supported, v->opponent_ready, v->opponent_supported,
             own, opponent, s->win, s->block, s->fork, s->stacked,
             s->opponent_forks, s->opponent_stacked, s->immediate_loss,
-            s->forcing_win, s->forcing_loss, s->forcing_limited, positional, random, total);
+            s->forcing_win, s->forcing_loss, s->prepared_win, s->prepared_loss,
+            s->forcing_limited, positional, random, total);
     }
     g_string_append_printf(history, "\nEscolha: coluna **%u**, linha %d.\n\n",
                            column + 1, scores[column].row + 1);

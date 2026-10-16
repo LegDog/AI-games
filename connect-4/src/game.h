@@ -1,8 +1,9 @@
 #pragma once
 
 #include <glib.h>
+#include "player.h"
 
-enum { GAME_ROWS = 6, GAME_COLS = 7, GAME_MAX_LINES = 69 };
+enum { GAME_ROWS = 6, GAME_COLS = 7, GAME_MAX_LINES = 69, GAME_CHOICES = 7, GAME_MAX_DEPTH = 12 };
 
 typedef struct {
     int cells[GAME_ROWS][GAME_COLS];
@@ -26,6 +27,7 @@ typedef struct {
     unsigned win, block, fork, opponent_forks, immediate_loss;
     unsigned stacked, opponent_stacked;
     unsigned forcing_win, forcing_loss, forcing_limited;
+    unsigned prepared_win, prepared_loss;
     PositionValue position;
     double random, total;
 } Score;
@@ -41,6 +43,7 @@ typedef struct {
 #define SCORE_FORCING_WIN 1000000.0
 #define SCORE_FORCING_LOSS 20000000.0
 enum { FORCING_MAX_PLIES = 12, FORCING_NODE_BUDGET = 1024 };
+enum { PREPARATION_MAX_MOVES = 2, PREPARATION_NODE_BUDGET = 4096 };
 
 void game_init(Game *game);
 /* Lowest empty row, or -1 for a full/invalid column. */
@@ -57,7 +60,7 @@ int game_best_move(const Score scores[GAME_COLS]);
 char game_symbol(int player);
 const char *game_player_name(int player);
 void game_record(GString *history, const Game *before, const Score scores[GAME_COLS],
-                 unsigned column, gboolean human);
+                 unsigned column, PlayerKind controller);
 char *game_report(const Game *game, const char *history, const char *configuration,
                   GDateTime *finished_at);
 gboolean game_append_report(const char *path, const char *report, GError **error);

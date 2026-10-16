@@ -168,11 +168,11 @@ static void record_board(GString *text, const Game *game)
 }
 
 void game_record(GString *history, const Game *before, const Score scores[9],
-                 unsigned cell, gboolean human)
+                 unsigned cell, PlayerKind controller)
 {
     g_string_append_printf(history, "### Jogada %u — %c (%s)\n\nTabuleiro anterior:\n\n",
                            before->moves + 1, game_symbol(before->turn),
-                           human ? "humano" : "automático");
+                           player_kind_name(controller));
     record_board(history, before);
     g_string_append(history,
         "| Tecla | Linha | Coluna | Vitória ×1000 | Bloqueio ×100 | Própria ×10 | Adversária ×1 | Bônus centro | Garfo ×50 | Respostas com garfo (−50 se houver) | Derrota imediata ×−500 | Linhas abertas ×0,2 | Aleatório | Total |\n"

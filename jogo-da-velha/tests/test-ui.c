@@ -1,13 +1,43 @@
-/* Exercise actual controllers and timers with a registered GTK application. */
 #include <glib/gstdio.h>
 #define main application_main
 #include "../src/main.c"
 #undef main
+#include "ollama-server.h"
 
 static void drain_events(void)
 {
     for (unsigned i = 0; i < 100 && g_main_context_pending(NULL); i++)
         g_main_context_iteration(NULL, FALSE);
+}
+
+static void wait_job(App *app)
+{
+    gint64 deadline = g_get_monotonic_time() + 5000000;
+    while (app->task && g_get_monotonic_time() < deadline) {
+        drain_events();
+        g_usleep(1000);
+    }
+    g_assert_null(app->task);
+}
+
+static void wait_moves(App *app, unsigned count)
+{
+    gint64 deadline = g_get_monotonic_time() + 5000000;
+    while (app->game.moves < count && g_get_monotonic_time() < deadline) {
+        drain_events();
+        g_usleep(1000);
+    }
+    g_assert_cmpuint(app->game.moves, ==, count);
+}
+
+static void select_players(App *app, PlayerKind first, PlayerKind second)
+{
+    configure_clicked(NULL, app);
+    gtk_drop_down_set_selected(app->controllers[0], first);
+    gtk_drop_down_set_selected(app->controllers[1], second);
+    gtk_range_set_value(GTK_RANGE(app->depth_scales[0]), 2);
+    gtk_range_set_value(GTK_RANGE(app->depth_scales[1]), 2);
+    begin_clicked(NULL, app);
 }
 
 static void test_controls(void)
@@ -20,94 +50,122 @@ static void test_controls(void)
     char *directory = g_dir_make_tmp("jogo-da-velha-ui-XXXXXX", &error);
     g_assert_no_error(error);
     app.history_path = g_build_filename(directory, "histórico.md", NULL);
-    app.application = GTK_APPLICATION(adw_application_new("io.github.aigames.JogoDaVelha.Test",
-                                                         G_APPLICATION_NON_UNIQUE));
+    app.application = GTK_APPLICATION(adw_application_new("io.github.aigames.JogoDaVelha.Test", G_APPLICATION_NON_UNIQUE));
     g_assert_true(g_application_register(G_APPLICATION(app.application), NULL, &error));
     g_assert_no_error(error);
     activate(app.application, &app);
     drain_events();
+    g_assert_cmpuint(gtk_drop_down_get_selected(app.controllers[0]), ==, PLAYER_HUMAN);
+    g_assert_cmpuint(gtk_drop_down_get_selected(app.controllers[1]), ==, PLAYER_POSITIONAL);
+    for (unsigned i = 0; i < 2; i++) {
+        g_assert_false(gtk_widget_get_visible(app.depth_rows[i]));
+        g_assert_cmpfloat(gtk_range_get_value(GTK_RANGE(app.depth_scales[i])), ==, DEFAULT_MINIMAX_DEPTH);
+    }
+    for (unsigned first = 0; first < 3; first++) {
+        for (unsigned second = 0; second < 3; second++) {
+            select_players(&app, first, second);
+            g_assert_cmpint(app.players[0].kind, ==, first);
+            g_assert_cmpint(app.players[1].kind, ==, second);
+            g_assert_cmpint(human_turn(&app), ==, first == PLAYER_HUMAN);
+            g_assert_cmpint(gtk_widget_get_visible(app.depth_rows[0]), ==, first == PLAYER_MINIMAX);
+            g_assert_cmpint(gtk_widget_get_visible(app.depth_rows[1]), ==, second == PLAYER_MINIMAX);
+            configure_clicked(NULL, &app);
+            wait_job(&app);
+        }
+    }
 
-    /* Human as O: X is automatic, keyboard cannot bypass its delay. */
-    gtk_drop_down_set_selected(app.humans, 1);
-    gtk_drop_down_set_selected(app.side, 1);
-    begin_clicked(NULL, &app);
-    g_assert_false(app.human_x);
-    g_assert_true(app.human_o);
-    g_assert_cmpuint(app.source, >, 0);
-    g_assert_false(key_pressed(NULL, GDK_KEY_7, 0, 0, &app));
+    /* Calculation completes during the delay. A delay change keeps its result. */
+    select_players(&app, PLAYER_MINIMAX, PLAYER_HUMAN);
+    guint64 generation = app.generation;
+    wait_job(&app);
+    g_assert_true(app.ready);
     g_assert_cmpuint(app.game.moves, ==, 0);
-    guint source = app.source;
+    g_assert_true(app.prepared_minimax.opening_random);
+    g_assert_false(key_pressed(NULL, GDK_KEY_1, 0, 0, &app));
     gtk_range_set_value(GTK_RANGE(app.scale), .1);
-    g_assert_cmpfloat(app.delay, ==, .1);
-    g_assert_cmpuint(app.source, !=, source);
-    gint64 due = g_get_monotonic_time() + 500000;
-    while (app.game.moves == 0 && g_get_monotonic_time() < due)
-        g_main_context_iteration(NULL, TRUE);
-    g_assert_cmpuint(app.game.moves, ==, 1);
-    g_assert_cmpuint(app.source, ==, 0);
+    g_assert_cmpuint(app.generation, ==, generation);
+    g_assert_true(app.ready);
+    wait_moves(&app, 1);
     g_assert_true(human_turn(&app));
 
-    /* Both humans: exact numeric-keypad layout and ignored occupied cells. */
-    configure_clicked(NULL, &app);
-    gtk_drop_down_set_selected(app.humans, 2);
-    begin_clicked(NULL, &app);
-    g_assert_true(app.human_x && app.human_o);
-    g_assert_cmpuint(app.history->len, ==, 0);
-    g_assert_true(key_pressed(NULL, GDK_KEY_KP_7, 0, 0, &app));
-    g_assert_cmpint(app.game.cells[0][0], ==, 1);
-    g_assert_true(key_pressed(NULL, GDK_KEY_7, 0, 0, &app));
-    g_assert_cmpuint(app.game.moves, ==, 1);
-    key_pressed(NULL, GDK_KEY_KP_4, 0, 0, &app);
-    key_pressed(NULL, GDK_KEY_8, 0, 0, &app);
-    key_pressed(NULL, GDK_KEY_KP_5, 0, 0, &app);
-    key_pressed(NULL, GDK_KEY_KP_Page_Up, 0, 0, &app);
-    g_assert_cmpint(game_result(&app.game), ==, 1);
-    g_assert_cmpuint(app.source, >, 0);
-    g_assert_nonnull(strstr(gtk_label_get_text(GTK_LABEL(app.status)), "X venceu"));
-    g_assert_true(g_file_test(app.history_path, G_FILE_TEST_EXISTS));
-    g_assert_false(key_pressed(NULL, GDK_KEY_1, 0, 0, &app));
-    guint result_source = app.source;
+    /* A real minimax search after a human move uses the selected depth. */
+    select_players(&app, PLAYER_HUMAN, PLAYER_MINIMAX);
     gtk_range_set_value(GTK_RANGE(app.scale), 0);
-    g_assert_cmpuint(app.source, ==, result_source); /* end delay is always 3 s */
-    gint64 end_started = g_get_monotonic_time();
-    while (game_result(&app.game))
-        g_main_context_iteration(NULL, TRUE);
-    g_assert_cmpint(g_get_monotonic_time() - end_started, >=, 2800000);
+    key_pressed(NULL, GDK_KEY_KP_1, 0, 0, &app);
+    g_assert_cmpuint(app.game.moves, ==, 1);
+    g_assert_false(key_pressed(NULL, GDK_KEY_2, 0, 0, &app));
+    GTask *same_task = app.task;
+    guint64 same_generation = app.generation;
+    gtk_range_set_value(GTK_RANGE(app.scale), .1);
+    gtk_range_set_value(GTK_RANGE(app.scale), 0);
+    g_assert_true(app.task == same_task);
+    g_assert_cmpuint(app.generation, ==, same_generation);
+    wait_moves(&app, 2);
+    g_assert_true(human_turn(&app));
+    g_assert_nonnull(strstr(app.history->str, "(Minimax)"));
+    g_assert_nonnull(strstr(app.history->str, "concluída: 2"));
+    g_assert_nonnull(strstr(app.history->str, "Valor minimax"));
+
+    /* Cancel a search, start another session before its callback, then ensure
+     * only the new empty-board result is applied. One worker at a time. */
+    select_players(&app, PLAYER_HUMAN, PLAYER_MINIMAX);
+    gtk_range_set_value(GTK_RANGE(app.depth_scales[1]), GAME_MAX_DEPTH);
+    app.players[1].depth = GAME_MAX_DEPTH;
+    key_pressed(NULL, GDK_KEY_1, 0, 0, &app);
+    GTask *old_task = app.task;
+    g_assert_nonnull(old_task);
+    select_players(&app, PLAYER_MINIMAX, PLAYER_HUMAN);
+    g_assert_true(app.task == old_task);
+    g_assert_cmpuint(app.job->generation, !=, app.generation);
+    wait_moves(&app, 1);
+    g_assert_true(human_turn(&app));
+    g_assert_nonnull(strstr(app.history->str, "Abertura aleatória"));
+    g_assert_null(strstr(app.history->str, "Jogada 2"));
+
+    /* Human victory, result delay and restart keep the selected controllers. */
+    select_players(&app, PLAYER_HUMAN, PLAYER_HUMAN);
+    const guint keys[] = {7,4,8,5,9};
+    for (unsigned i = 0; i < G_N_ELEMENTS(keys); i++)
+        key_pressed(NULL, GDK_KEY_0 + keys[i], 0, 0, &app);
+    g_assert_cmpint(game_result(&app.game), ==, 1);
+    g_assert_true(g_file_test(app.history_path, G_FILE_TEST_EXISTS));
+    guint result_source = app.source;
+    gtk_range_set_value(GTK_RANGE(app.scale), .1);
+    g_assert_cmpuint(app.source, ==, result_source);
+    gint64 start = g_get_monotonic_time(), end = start + 5000000;
+    while (game_result(&app.game) && g_get_monotonic_time() < end) {
+        drain_events();
+        g_usleep(1000);
+    }
     g_assert_cmpuint(app.game.moves, ==, 0);
     g_assert_cmpuint(app.history->len, ==, 0);
-    g_assert_true(app.human_x && app.human_o);
+    g_assert_cmpint(g_get_monotonic_time() - start, >=, 2800000);
+    g_assert_cmpint(app.players[0].kind, ==, PLAYER_HUMAN);
+    g_assert_cmpint(app.players[1].kind, ==, PLAYER_HUMAN);
 
-    /* Draw is discarded. */
-    const guint draw_keys[] = {7,8,9,5,4,6,2,1,3};
+    const unsigned draw[] = {0,1,2,4,3,5,7,6,8};
     GStatBuf before, after;
     g_assert_cmpint(g_stat(app.history_path, &before), ==, 0);
-    for (unsigned i = 0; i < G_N_ELEMENTS(draw_keys); i++)
-        key_pressed(NULL, GDK_KEY_0 + draw_keys[i], 0, 0, &app);
+    for (unsigned i = 0; i < G_N_ELEMENTS(draw); i++)
+        play_cell(&app, draw[i]);
     g_assert_cmpint(game_result(&app.game), ==, 2);
     g_assert_cmpint(g_stat(app.history_path, &after), ==, 0);
     g_assert_cmpint(before.st_size, ==, after.st_size);
 
-    /* Actual board geometry determines mouse hit testing, including margins. */
-    configure_clicked(NULL, &app);
-    begin_clicked(NULL, &app);
+    select_players(&app, PLAYER_HUMAN, PLAYER_HUMAN);
     drain_events();
-    double width = gtk_widget_get_width(app.board), height = gtk_widget_get_height(app.board);
-    double size = MIN(width, height);
-    g_assert_cmpfloat(size, >, 0);
     board_clicked(NULL, 1, -1, -1, &app);
     g_assert_cmpuint(app.game.moves, ==, 0);
-    board_clicked(NULL, 1, width / 2, height / 2, &app);
+    board_clicked(NULL, 1, gtk_widget_get_width(app.board) / 2., gtk_widget_get_height(app.board) / 2., &app);
     g_assert_cmpint(app.game.cells[1][1], ==, 1);
 
-    /* Error queue survives reset and retry writes it once. */
     char *real_path = app.history_path;
-    app.history_path = g_strdup(directory); /* opening a directory fails */
+    app.history_path = g_strdup(directory);
     g_queue_push_tail(&app.pending_reports, g_strdup("\nPending report\n"));
     flush_reports(&app);
     g_assert_cmpuint(app.pending_reports.length, ==, 1);
     g_assert_true(gtk_widget_get_visible(app.error_box));
-    configure_clicked(NULL, &app);
-    begin_clicked(NULL, &app);
+    select_players(&app, PLAYER_HUMAN, PLAYER_HUMAN);
     g_assert_cmpuint(app.pending_reports.length, ==, 1);
     g_free(app.history_path);
     app.history_path = real_path;
@@ -115,25 +173,16 @@ static void test_controls(void)
     g_assert_true(g_queue_is_empty(&app.pending_reports));
     g_assert_false(gtk_widget_get_visible(app.error_box));
 
-    /* Zero-delay automation yields to the loop and works with cell 0 occupied. */
-    configure_clicked(NULL, &app);
-    gtk_drop_down_set_selected(app.humans, 0);
-    begin_clicked(NULL, &app);
-    g_assert_false(app.human_x || app.human_o);
-    g_assert_cmpuint(app.game.moves, ==, 0);
-    while (!game_result(&app.game))
-        g_main_context_iteration(NULL, TRUE);
-    g_assert_cmpuint(app.game.moves, >=, 5);
-    configure_clicked(NULL, &app);
-    g_assert_cmpuint(app.source, ==, 0);
-    g_assert_false(app.playing);
-    begin_clicked(NULL, &app);
-    g_assert_cmpuint(app.source, >, 0);
+    select_players(&app, PLAYER_HUMAN, PLAYER_MINIMAX);
+    app.players[1].depth = GAME_MAX_DEPTH;
+    key_pressed(NULL, GDK_KEY_1, 0, 0, &app);
+    g_assert_nonnull(app.task);
     gtk_window_destroy(app.window);
-    drain_events();
-    g_assert_cmpuint(app.source, ==, 0);
+    shutdown_jobs(&app);
     g_assert_null(app.window);
-
+    g_assert_null(app.task);
+    g_assert_cmpuint(app.source, ==, 0);
+    g_assert_cmpuint(app.progress_source, ==, 0);
     g_object_unref(app.application);
     g_string_free(app.history, TRUE);
     g_rand_free(app.random);
@@ -143,9 +192,259 @@ static void test_controls(void)
     g_free(app.history_path);
 }
 
+typedef struct { gboolean done, expected_cancel; } WorkerTest;
+static void worker_test_done(GObject *source, GAsyncResult *result, gpointer data)
+{
+    (void) source;
+    WorkerTest *test = data;
+    GError *error = NULL;
+    gboolean ok = g_task_propagate_boolean(G_TASK(result), &error);
+    if (test->expected_cancel) {
+        g_assert_false(ok);
+        g_assert_error(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+    } else {
+        g_assert_true(ok);
+        g_assert_no_error(error);
+        TurnJob *job = g_task_get_task_data(G_TASK(result));
+        g_assert_cmpint(job->chosen, >=, 0);
+        g_assert_cmpuint(job->minimax.completed_depth, ==, 2);
+        g_assert_cmpuint(job->game.moves, ==, 1); /* worker never edits snapshot */
+        g_assert_cmpint(g_atomic_int_get(&job->progress), ==, 2);
+    }
+    g_clear_error(&error);
+    test->done = TRUE;
+}
+
+/* GTask workers and cancellation can be checked without a graphical display. */
+static void test_worker(void)
+{
+    for (unsigned cancel = 0; cancel < 2; cancel++) {
+        TurnJob *job = g_new0(TurnJob, 1);
+        game_init(&job->game);
+        game_play(&job->game, 0);
+        job->player = (PlayerConfig) {.kind = PLAYER_MINIMAX, .depth = 2};
+        job->seed = 73;
+        GCancellable *cancellable = g_cancellable_new();
+        if (cancel) g_cancellable_cancel(cancellable);
+        WorkerTest test = {.expected_cancel = cancel};
+        GTask *task = g_task_new(NULL, cancellable, worker_test_done, &test);
+        g_task_set_task_data(task, job, g_free);
+        g_task_set_return_on_cancel(task, FALSE);
+        g_task_run_in_thread(task, turn_worker);
+        while (!test.done)
+            g_main_context_iteration(NULL, TRUE);
+        g_object_unref(task);
+        g_object_unref(cancellable);
+    }
+}
+
+
+
+static void test_stale_completion(void)
+{
+    for (unsigned cancel = 0; cancel < 2; cancel++) {
+        App app = {0};
+        game_init(&app.game);
+        app.history = g_string_new("untouched");
+        app.generation = 2;
+        TurnJob *job = g_new0(TurnJob, 1);
+        job->game = app.game;
+        game_play(&job->game, 0);
+        job->player = (PlayerConfig) {.kind = PLAYER_MINIMAX, .depth = 2};
+        job->generation = 1;
+        app.job = job;
+        app.search_cancel = g_cancellable_new();
+        app.task = g_task_new(NULL, app.search_cancel, turn_completed, &app);
+        g_task_set_task_data(app.task, job, g_free);
+        g_task_set_return_on_cancel(app.task, FALSE);
+        g_task_run_in_thread(app.task, turn_worker);
+        if (cancel) g_cancellable_cancel(app.search_cancel);
+        wait_job(&app);
+        g_assert_cmpuint(app.game.moves, ==, 0);
+        g_assert_cmpstr(app.history->str, ==, "untouched");
+        g_assert_false(app.ready);
+        g_assert_null(app.job);
+        g_assert_null(app.search_cancel);
+        shutdown_jobs(&app);
+        g_string_free(app.history, TRUE);
+    }
+}
+
+static void wait_models(App *app)
+{
+    gint64 deadline = g_get_monotonic_time() + 5000000;
+    while (app->models_task && g_get_monotonic_time() < deadline) {
+        drain_events();
+        g_usleep(1000);
+    }
+    g_assert_null(app->models_task);
+}
+
+static void test_ollama_controls(void)
+{
+    Fixture server = {0};
+    setup(&server, NULL);
+    if (!server.url) { teardown(&server, NULL); return; }
+    server.body = "{\"models\":[{\"name\":\"z:1b\"},{\"name\":\"a:1b\"}]}";
+    server.auto_move = TRUE;
+    App app = {0};
+    app.ollama_url = g_strdup(server.url);
+    app.delay = 3;
+    app.random = g_rand_new_with_seed(15);
+    app.history = g_string_new(NULL);
+    GError *error = NULL;
+    char *directory = g_dir_make_tmp("ollama-ui-XXXXXX", &error);
+    g_assert_no_error(error);
+    app.history_path = g_build_filename(directory, "history.md", NULL);
+    app.application = GTK_APPLICATION(adw_application_new("io.github.aigames.Ollama.Test", G_APPLICATION_NON_UNIQUE));
+    g_assert_true(g_application_register(G_APPLICATION(app.application), NULL, &error));
+    g_assert_no_error(error);
+    activate(app.application, &app);
+    gtk_drop_down_set_selected(app.controllers[0], PLAYER_OLLAMA);
+    g_assert_false(gtk_widget_get_sensitive(app.begin_button));
+    g_assert_nonnull(app.models_task);
+    wait_models(&app);
+    g_assert_true(app.models_valid);
+    g_assert_true(gtk_widget_get_sensitive(app.begin_button));
+    g_assert_cmpstr(selected_model(&app, 0), ==, "a:1b");
+    gtk_drop_down_set_selected(app.models[1], 1);
+    refresh_models_clicked(NULL, &app);
+    wait_models(&app);
+    g_assert_cmpstr(selected_model(&app, 0), ==, "a:1b");
+    g_assert_cmpstr(selected_model(&app, 1), ==, "z:1b");
+    for (unsigned i = 0; i < 2; i++) {
+        g_assert_false(gtk_check_button_get_active(app.assist_checks[i]));
+        g_assert_true(gtk_check_button_get_active(app.thinking_checks[i]));
+    }
+    gtk_check_button_set_active(app.assist_checks[0], TRUE);
+    gtk_check_button_set_active(app.thinking_checks[0], FALSE);
+    for (unsigned first = 0; first < 4; first++) {
+        for (unsigned second = 0; second < 4; second++) {
+            select_players(&app, first, second);
+            g_assert_cmpint(app.players[0].kind, ==, first);
+            g_assert_cmpint(app.players[1].kind, ==, second);
+            g_assert_cmpint(gtk_widget_get_visible(app.model_rows[0]), ==, first == PLAYER_OLLAMA);
+            g_assert_cmpint(gtk_widget_get_visible(app.model_rows[1]), ==, second == PLAYER_OLLAMA);
+            g_assert_cmpint(gtk_widget_get_visible(app.depth_rows[0]), ==, first == PLAYER_MINIMAX);
+            g_assert_cmpint(gtk_widget_get_visible(app.depth_rows[1]), ==, second == PLAYER_MINIMAX);
+            if (first == PLAYER_OLLAMA) {
+                g_assert_cmpstr(app.job->player.model, ==, "a:1b");
+                g_assert_true(app.job->player.ollama_assisted);
+                g_assert_false(app.job->player.ollama_thinking);
+                g_assert_true(app.job->player.model != app.players[0].model);
+            }
+            g_assert_cmpint(gtk_widget_get_visible(app.ollama_options[0]), ==, first == PLAYER_OLLAMA);
+            g_assert_cmpint(gtk_widget_get_visible(app.ollama_options[1]), ==, second == PLAYER_OLLAMA);
+            wait_job(&app);
+            g_assert_cmpuint(app.game.moves, ==, 0);
+            g_assert_false(app.turn_failed);
+        }
+    }
+    select_players(&app, PLAYER_OLLAMA, PLAYER_OLLAMA);
+    wait_job(&app);
+    for (unsigned i = 0; i < 2; i++) {
+        cancel_timer(&app);
+        automatic_move(&app);
+        wait_job(&app);
+        g_assert_cmpuint(app.game.moves, ==, i + 1);
+    }
+    g_assert_nonnull(strstr(app.history->str, "modelo: a:1b"));
+    g_assert_nonnull(strstr(app.history->str, "modelo: z:1b"));
+    g_assert_nonnull(strstr(app.history->str, "modo: assistido"));
+    g_assert_nonnull(strstr(app.history->str, "modo: puro"));
+    g_assert_nonnull(strstr(app.history->str, "(Ollama)"));
+    /* A new game keeps both models and clears the in-memory history. */
+    start_game(&app);
+    wait_job(&app);
+    g_assert_cmpuint(app.game.moves, ==, 0);
+    g_assert_cmpuint(app.history->len, ==, 0);
+    g_assert_cmpstr(app.players[0].model, ==, "a:1b");
+    g_assert_cmpstr(app.players[1].model, ==, "z:1b");
+
+    server.auto_move = FALSE;
+    server.body = "{\"done\":true,\"response\":\"{\\\"move\\\":0}\"}";
+    select_players(&app, PLAYER_OLLAMA, PLAYER_HUMAN);
+    wait_job(&app);
+    g_assert_true(app.turn_failed);
+    g_assert_false(app.ready);
+    g_assert_cmpuint(app.game.moves, ==, 0);
+    g_assert_true(gtk_widget_get_visible(app.turn_error_box));
+    g_assert_cmpuint(app.source, ==, 0);
+    gtk_range_set_value(GTK_RANGE(app.scale), 0);
+    drain_events();
+    g_assert_null(app.task);
+    g_assert_cmpuint(app.game.moves, ==, 0);
+    server.auto_move = TRUE;
+    retry_ollama(NULL, &app);
+    wait_moves(&app, 1);
+    g_assert_false(app.turn_failed);
+    g_assert_false(gtk_widget_get_visible(app.turn_error_box));
+    g_assert_nonnull(strstr(app.history->str, "Tentativa Ollama antes da jogada 1"));
+    g_assert_nonnull(strstr(app.history->str, "modelo: a:1b"));
+
+    /* Cancel a pending request and start a different session. No old move or
+     * error may escape into the new session, even with a zero delay. */
+    server.delayed = TRUE;
+    unsigned calls = server.calls;
+    select_players(&app, PLAYER_OLLAMA, PLAYER_HUMAN);
+    gint64 end = g_get_monotonic_time() + 5000000;
+    while (server.calls == calls && g_get_monotonic_time() < end) {
+        drain_events();
+        g_usleep(1000);
+    }
+    g_assert_cmpuint(server.calls, >, calls);
+    select_players(&app, PLAYER_MINIMAX, PLAYER_HUMAN);
+    wait_moves(&app, 1);
+    g_assert_false(app.turn_failed);
+    g_assert_null(strstr(app.history->str, "Ollama"));
+    server.delayed = FALSE;
+    configure_clicked(NULL, &app);
+    gtk_drop_down_set_selected(app.controllers[0], PLAYER_OLLAMA);
+    server.body = "{\"models\":[]}";
+    refresh_models_clicked(NULL, &app);
+    wait_models(&app);
+    g_assert_false(app.models_valid);
+    g_assert_false(gtk_widget_get_sensitive(app.begin_button));
+    server.status = 500;
+    refresh_models_clicked(NULL, &app);
+    wait_models(&app);
+    g_assert_false(gtk_widget_get_sensitive(app.begin_button));
+    gtk_drop_down_set_selected(app.controllers[0], PLAYER_HUMAN);
+    g_assert_true(gtk_widget_get_sensitive(app.begin_button));
+    /* Close with a discovery request still pending. */
+    server.status = 200;
+    server.delayed = TRUE;
+    refresh_models_clicked(NULL, &app);
+    gtk_window_destroy(app.window);
+    shutdown_jobs(&app);
+    g_assert_null(app.models_task);
+    g_assert_null(app.models_cancel);
+    g_assert_null(app.task);
+    g_object_unref(app.application);
+    g_string_free(app.history, TRUE);
+    g_rand_free(app.random);
+    g_remove(app.history_path);
+    g_free(app.history_path);
+    g_rmdir(directory);
+    g_free(directory);
+    teardown(&server, NULL);
+}
+
 int main(int argc, char **argv)
 {
     g_test_init(&argc, &argv, NULL);
+    GError *error = NULL;
+    g_autofree char *directory = g_dir_make_tmp("ollama-ui-log-XXXXXX", &error);
+    g_assert_no_error(error);
+    g_autofree char *log_path = g_build_filename(directory, "ollama.log", NULL);
+    g_setenv("OLLAMA_LOG_FILE", log_path, TRUE);
+    g_test_add_func("/ui/ollama-controllers-retry-cancel", test_ollama_controls);
+    g_test_add_func("/ui/worker-without-display", test_worker);
+    g_test_add_func("/ui/stale-completion-without-display", test_stale_completion);
+
     g_test_add_func("/ui/controllers-timers-history", test_controls);
-    return g_test_run();
+    int result = g_test_run();
+    g_remove(log_path);
+    g_rmdir(directory);
+    return result;
 }

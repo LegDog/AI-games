@@ -7,7 +7,7 @@ UI_BUILD_DIR ?= build-ui
 PREFIX ?= $(HOME)/.local
 MESON_ARGS ?=
 
-.PHONY: all configure build run test test-ui install clean help
+.PHONY: all configure build run test test-ui test-ollama install clean help
 
 all: build
 
@@ -41,6 +41,9 @@ test-ui:
 	fi
 	$(MESON) test -C "$(UI_BUILD_DIR)" --print-errorlogs
 
+test-ollama: build
+	$(MESON) test -C "$(BUILD_DIR)" --print-errorlogs ollama ollama-log
+
 install: build
 	DESTDIR="$(DESTDIR)" $(MESON) install -C "$(BUILD_DIR)"
 
@@ -56,6 +59,7 @@ help:
 		'make             Compilar o aplicativo' \
 		'make run         Compilar e executar' \
 		'make test        Testar o motor sem dependências gráficas' \
+		'make test-ollama  Testar o cliente Ollama sem precisar de display ou modelos' \
 		'make test-ui     Testar também a interface (requer display)' \
 		'make install     Instalar em PREFIX (padrão: ~/.local)' \
 		'make clean       Limpar os artefatos gerenciados pelo Meson' \

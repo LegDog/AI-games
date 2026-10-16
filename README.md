@@ -15,7 +15,7 @@ um aplicativo para usar o outro.
 No Fedora:
 
 ```sh
-sudo dnf install gcc meson ninja-build pkgconf-pkg-config glib2-devel gtk4-devel libadwaita-devel
+sudo dnf install gcc meson ninja-build pkgconf-pkg-config glib2-devel gtk4-devel libadwaita-devel libsoup3-devel json-glib-devel
 make
 ```
 
@@ -50,8 +50,15 @@ executar `make`, `make run`, `make test`, `make test-ui`, `make install` e
 
 ## Partidas e históricos
 
-Ambos permitem 0, 1 ou 2 humanos, delay automático de 0–3 segundos em passos
-de 0,1 segundo e reinício três segundos após cada resultado. A abertura
+Cada lado tem um seletor **Humano / Posicional / Minimax / Ollama**, permitindo todas
+as combinações. Cada jogador Minimax tem profundidade própria: 1–9 (padrão 9)
+no jogo da velha e 1–12 (padrão 6) no Lig-4. O padrão é primeiro lado humano
+e segundo posicional. A busca roda em segundo plano e conclui a profundidade
+escolhida; “Nova configuração” cancela a análise.
+
+O delay de 0–3 segundos, em passos de 0,1 segundo, é a espera mínima do turno:
+análise e temporizador começam juntos. O reinício três segundos após cada
+resultado conserva os controladores, suas profundidades e o delay. A abertura
 trata todas as jogadas iniciais como equivalentes e usa somente o aleatório.
 
 Antes de cada jogada humana ou automática, os componentes da avaliação são
@@ -67,3 +74,21 @@ fornecido pelo terminal ou desktop.
 Os diretórios de build antigos na raiz não são reutilizados após a separação.
 Históricos existentes foram preservados em seu local original. Novos builds
 ficam em cada projeto; builds e históricos locais são ignorados pelo Git.
+
+
+Os dois jogos também oferecem **Ollama** como jogador, com modelo independente
+por participante e atualização da lista do serviço local (`127.0.0.1:11434`).
+O build gráfico requer libsoup 3 e JSON-GLib, além das dependências anteriores.
+Use `make test-ollama` para testar o cliente; `make test` mantém os testes dos
+motores sem dependências gráficas ou de rede. Consulte o README de cada jogo
+para configuração, tratamento de erros e detalhes do histórico.
+
+Toda a comunicação com Ollama é acrescentada a `ollama.log` no diretório de
+execução, incluindo prompts, respostas completas e `thinking` quando retornado
+pelo modelo. O arquivo usa JSON Lines; `OLLAMA_LOG_FILE` permite outro caminho.
+
+O jogador Ollama oferece **Assistência tática** opcional (desmarcada por padrão)
+e **Raciocínio ampliado** (marcado por padrão), configurados por participante.
+O histórico distingue os modos puro e assistido. O prompt identifica peças,
+coordenadas e locais de queda; o Cogito v1 pode analisar antes de responder em
+JSON. Consulte os READMEs dos jogos para os controles e limites dessas opções.

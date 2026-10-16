@@ -157,7 +157,7 @@ static void test_center_bonus(void)
     g_assert_cmpuint(scores[4].center_bonus, ==, 5);
     g_assert_cmpint(game_best_move(scores), ==, 2);
     GString *history = g_string_new(NULL);
-    game_record(history, &game, scores, 2, FALSE);
+    game_record(history, &game, scores, 2, PLAYER_POSITIONAL);
     g_assert_nonnull(strstr(history->str, "Bônus centro"));
     g_assert_nonnull(strstr(history->str, "| 5 | 2 | 2 | 0 | 0 | 0 | 1 | 5 |"));
     g_string_free(history, TRUE);
@@ -202,7 +202,7 @@ static void test_open_lines(void)
     g_assert_cmpuint(scores[2].open_lines, ==, 2); /* row contains O, column empty */
     g_assert_cmpuint(scores[6].open_lines, ==, 1); /* column contains O */
     GString *history = g_string_new(NULL);
-    game_record(history, &game, scores, (unsigned) game_best_move(scores), FALSE);
+    game_record(history, &game, scores, (unsigned) game_best_move(scores), PLAYER_POSITIONAL);
     g_assert_nonnull(strstr(history->str, "Linhas abertas ×0,2"));
     g_string_free(history, TRUE);
     g_rand_free(random);
@@ -218,11 +218,11 @@ static void test_history(void)
     for (unsigned i = 0; i < G_N_ELEMENTS(moves); i++) {
         Score scores[9];
         game_evaluate(&game, random, scores);
-        game_record(history, &game, scores, moves[i], i % 2 == 0);
+        game_record(history, &game, scores, moves[i], i % 2 == 0 ? PLAYER_HUMAN : PLAYER_POSITIONAL);
         game_play(&game, moves[i]);
     }
-    g_assert_nonnull(strstr(history->str, "Jogada 1 — X (humano)"));
-    g_assert_nonnull(strstr(history->str, "Jogada 2 — O (automático)"));
+    g_assert_nonnull(strstr(history->str, "Jogada 1 — X (Humano)"));
+    g_assert_nonnull(strstr(history->str, "Jogada 2 — O (Posicional)"));
     g_assert_nonnull(strstr(history->str, "Escolha: tecla **9**"));
     GDateTime *date = g_date_time_new_from_iso8601("2026-10-16T14:30:00-03:00", NULL);
     char *report = game_report(&game, history->str, "X: humano; O: automático.", date);
@@ -333,7 +333,7 @@ static void test_forks(void)
         if (scores[cell].empty)
             g_assert_cmpuint(scores[cell].immediate_loss, ==, 1);
     GString *history = g_string_new(NULL);
-    game_record(history, &game, scores, (unsigned) game_best_move(scores), FALSE);
+    game_record(history, &game, scores, (unsigned) game_best_move(scores), PLAYER_POSITIONAL);
     g_assert_nonnull(strstr(history->str, "Garfo ×50"));
     g_assert_nonnull(strstr(history->str, "Respostas com garfo"));
     g_string_free(history, TRUE);

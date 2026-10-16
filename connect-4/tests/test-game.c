@@ -250,7 +250,7 @@ static void test_stacked_regression(void)
                     g_assert_cmpuint(scores[col].fork, ==, 0); /* only one playable column */
                     g_assert_cmpint(game_best_move(scores), ==, col);
                     GString *history = g_string_new(NULL);
-                    game_record(history, &game, scores, col, FALSE);
+                    game_record(history, &game, scores, col, PLAYER_POSITIONAL);
                     g_assert_nonnull(strstr(history->str, "Empilhamento"));
                     g_assert_nonnull(strstr(history->str, "Potencial adversário"));
                     g_string_free(history, TRUE);
@@ -314,7 +314,7 @@ static void test_forcing_chain_regression(void)
                 g_assert_cmpuint(scores[losing].forcing_limited, ==, 0);
             }
             GString *history = g_string_new(NULL);
-            game_record(history, &game, scores, (unsigned) game_best_move(scores), FALSE);
+            game_record(history, &game, scores, (unsigned) game_best_move(scores), PLAYER_POSITIONAL);
             g_assert_nonnull(strstr(history->str, "Derrota forçada ×−2e7"));
             g_assert_nonnull(strstr(history->str, "Limite de nós atingido"));
             g_string_free(history, TRUE);
@@ -327,6 +327,57 @@ static void test_forcing_chain_regression(void)
             for (unsigned col = 0; col < GAME_COLS; col++)
                 if (scores[col].legal)
                     g_assert_cmpuint(scores[col].forcing_loss, ==, 1);
+        }
+    }
+    g_rand_free(random);
+}
+
+static void test_preparation_regression(void)
+{
+    /* Minimax depth 6 vs positional, 2026-10-16 18:18:02 and 18:17:50.
+     * The losing choices precede two quiet attacking preparations. Waiting
+     * until the first immediate threat makes the losses unavoidable. */
+    const unsigned short25[] = {0,3,4,3,3,4,4,0,3,3,4,4,0,1,1,1,0};
+    const unsigned short29[] = {0,3,4,3,3,4,4,0,3,3,4,4,6,6,6,6,6,0,0,1,1};
+    const struct {
+        const unsigned *moves;
+        unsigned count, losing;
+    } cases[] = {
+        {short25, G_N_ELEMENTS(short25), 4},
+        {short29, G_N_ELEMENTS(short29), 1},
+    };
+    GRand *random = g_rand_new_with_seed(81);
+    for (unsigned k = 0; k < G_N_ELEMENTS(cases); k++) {
+        for (unsigned mirror = 0; mirror < 2; mirror++) {
+            for (int color = -1; color <= 1; color += 2) {
+                Game game;
+                game_init(&game);
+                game.turn = color;
+                for (unsigned i = 0; i < cases[k].count; i++)
+                    g_assert_true(game_play(&game, mirror ? 6 - cases[k].moves[i] : cases[k].moves[i]));
+                unsigned losing = mirror ? 6 - cases[k].losing : cases[k].losing;
+                Score scores[GAME_COLS];
+                for (unsigned trial = 0; trial < 8; trial++) {
+                    game_evaluate(&game, random, scores);
+                    g_assert_cmpuint(scores[losing].immediate_loss, ==, 0);
+                    g_assert_cmpuint(scores[losing].opponent_forks, ==, 0);
+                    g_assert_cmpuint(scores[losing].prepared_loss, ==, 1);
+                    g_assert_cmpuint(scores[losing].forcing_loss, ==, 1);
+                    g_assert_cmpuint(scores[losing].forcing_limited, ==, 0);
+                    int best = game_best_move(scores);
+                    g_assert_cmpint(best, !=, losing);
+                    g_assert_cmpuint(scores[best].forcing_loss, ==, 0);
+                }
+                GString *history = g_string_new(NULL);
+                game_record(history, &game, scores, game_best_move(scores), PLAYER_POSITIONAL);
+                g_assert_nonnull(strstr(history->str, "Derrota com preparação"));
+                g_string_free(history, TRUE);
+                g_assert_true(game_play(&game, losing));
+                game_evaluate(&game, random, scores);
+                unsigned attack = mirror ? 5 : 1;
+                g_assert_cmpuint(scores[attack].prepared_win, ==, 1);
+                g_assert_cmpuint(scores[attack].forcing_win, ==, 1);
+            }
         }
     }
     g_rand_free(random);
@@ -405,11 +456,11 @@ static void test_history(void)
     for (unsigned i = 0; i < G_N_ELEMENTS(moves); i++) {
         Score scores[GAME_COLS];
         game_evaluate(&game, random, scores);
-        game_record(history, &game, scores, moves[i], i % 2 == 0);
+        game_record(history, &game, scores, moves[i], i % 2 == 0 ? PLAYER_HUMAN : PLAYER_POSITIONAL);
         game_play(&game, moves[i]);
     }
-    g_assert_nonnull(strstr(history->str, "Jogada 1 — Vermelho (humano)"));
-    g_assert_nonnull(strstr(history->str, "Jogada 2 — Amarelo (automático)"));
+    g_assert_nonnull(strstr(history->str, "Jogada 1 — Vermelho (Humano)"));
+    g_assert_nonnull(strstr(history->str, "Jogada 2 — Amarelo (Posicional)"));
     g_assert_nonnull(strstr(history->str, "Escolha: coluna **4**, linha 6"));
     g_assert_nonnull(strstr(history->str, "Respostas com garfo"));
     GDateTime *date = g_date_time_new_from_iso8601("2026-10-16T17:30:00-03:00", NULL);
@@ -503,6 +554,7 @@ int main(int argc, char **argv)
     g_test_add_func("/connect4/accessibility", test_accessibility);
     g_test_add_func("/connect4/stacked-regression", test_stacked_regression);
     g_test_add_func("/connect4/forcing-chain-regression", test_forcing_chain_regression);
+    g_test_add_func("/connect4/preparation-regression", test_preparation_regression);
     g_test_add_func("/connect4/generated-games", test_generated_games);
     g_test_add_func("/connect4/history", test_history);
     g_test_add_func("/connect4/partial-write-retry", test_partial_write);

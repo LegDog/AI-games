@@ -1,6 +1,9 @@
 #pragma once
 
 #include <glib.h>
+#include "player.h"
+
+enum { GAME_ROWS = 3, GAME_COLS = 3, GAME_CHOICES = 9, GAME_MAX_DEPTH = 9 };
 
 typedef struct {
     int cells[3][3];
@@ -27,7 +30,7 @@ void game_evaluate(const Game *game, GRand *random, Score scores[9]);
 int game_best_move(const Score scores[9]);
 char game_symbol(int player);
 void game_record(GString *history, const Game *before, const Score scores[9],
-                 unsigned cell, gboolean human);
+                 unsigned cell, PlayerKind controller);
 /* Returns NULL for a draw or unfinished game. Caller owns the result. */
 char *game_report(const Game *game, const char *history, const char *configuration,
                   GDateTime *finished_at);

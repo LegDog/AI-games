@@ -1,29 +1,79 @@
 #include <adwaita.h>
 #include <math.h>
-
+#include <string.h>
 #include "game.h"
+#include "minimax.h"
+#include "ollama.h"
+
+#define DEFAULT_MINIMAX_DEPTH 6
+
+typedef struct {
+    Game game;
+    PlayerConfig player;
+    guint64 generation;
+    guint32 seed;
+    gint progress;
+    Score scores[GAME_CHOICES];
+    MinimaxResult minimax;
+    int chosen;
+    char *ollama_url;
+    OllamaResult ollama;
+} TurnJob;
 
 typedef struct {
     GtkApplication *application;
     GtkWindow *window;
     GtkWidget *stack, *board, *status, *scale, *error_box, *error_label;
-    GtkDropDown *humans, *side;
+    GtkDropDown *controllers[2];
+    GtkWidget *depth_rows[2], *depth_scales[2];
+    PlayerConfig players[2];
+    GtkDropDown *models[2];
+    GtkWidget *model_rows[2], *model_status, *refresh_models, *begin_button;
+    GtkWidget *ollama_options[2];
+    GtkCheckButton *assist_checks[2], *thinking_checks[2];
+    GtkWidget *turn_error_box, *turn_error_label;
+    gboolean models_attempted, models_valid, turn_failed;
+    GTask *models_task;
+    GCancellable *models_cancel;
+    char *ollama_url;
+    OllamaResult prepared_ollama;
     Game game;
     GRand *random;
     GString *history;
     GQueue pending_reports;
     char *history_path;
-    gboolean human_red, human_yellow, playing;
-    guint source;
+    gboolean playing, ready, delay_elapsed, closing;
+    guint source, progress_source;
+    guint64 generation;
     double delay;
+    GTask *task;
+    GCancellable *search_cancel;
+    TurnJob *job;
+    Score prepared_scores[GAME_CHOICES];
+    MinimaxResult prepared_minimax;
+    int chosen;
 } App;
 
 static void schedule_turn(App *app);
 static void start_game(App *app);
+static void start_search(App *app);
+static void maybe_apply(App *app);
+static void refresh_models_clicked(GtkButton *button, gpointer data);
+static void update_configuration(App *app);
+
+static PlayerConfig current_player(const App *app)
+{
+    return app->players[app->game.turn == 1 ? 0 : 1];
+}
 
 static gboolean human_turn(const App *app)
 {
-    return app->game.turn == 1 ? app->human_red : app->human_yellow;
+    return current_player(app).kind == PLAYER_HUMAN;
+}
+
+static const char *turn_name(const App *app)
+{
+    return game_player_name(app->game.turn);
 }
 
 static void cancel_timer(App *app)
@@ -32,6 +82,51 @@ static void cancel_timer(App *app)
         g_source_remove(app->source);
         app->source = 0;
     }
+}
+
+static void stop_progress(App *app)
+{
+    if (app->progress_source) {
+        g_source_remove(app->progress_source);
+        app->progress_source = 0;
+    }
+}
+
+static void cancel_turn(App *app)
+{
+    cancel_timer(app);
+    stop_progress(app);
+    app->generation++;
+    app->ready = FALSE;
+    app->turn_failed = FALSE;
+    if (app->turn_error_box && !app->closing)
+        gtk_widget_set_visible(app->turn_error_box, FALSE);
+    if (app->search_cancel)
+        g_cancellable_cancel(app->search_cancel);
+}
+
+static void update_status(App *app)
+{
+    if (!app->window || !app->playing || game_result(&app->game))
+        return;
+    PlayerConfig player = current_player(app);
+    char *text;
+    if (app->turn_failed) {
+        text = g_strdup_printf("Vez de %s · Ollama pausado", turn_name(app));
+    } else if (player.kind == PLAYER_OLLAMA && !app->ready) {
+        text = g_strdup_printf("Vez de %s · Ollama — %s: pensando…", turn_name(app), player.model);
+    } else if (!human_turn(app) && !app->ready) {
+        unsigned completed = app->job && app->job->generation == app->generation ?
+            (unsigned) g_atomic_int_get(&app->job->progress) : 0;
+        text = player.kind == PLAYER_MINIMAX ?
+            g_strdup_printf("Vez de %s · Minimax analisando · %u/%u", turn_name(app), completed, player.depth) :
+            g_strdup_printf("Vez de %s · Posicional analisando", turn_name(app));
+    } else {
+        text = g_strdup_printf("Vez de %s · %s%s", turn_name(app), player_kind_name(player.kind),
+            !human_turn(app) && !app->delay_elapsed ? " · aguardando delay" : "");
+    }
+    gtk_label_set_text(GTK_LABEL(app->status), text);
+    g_free(text);
 }
 
 static void flush_reports(App *app)
@@ -66,35 +161,54 @@ static gboolean restart_game(gpointer data)
     return G_SOURCE_REMOVE;
 }
 
-static void play_column(App *app, unsigned cell)
+static char *describe_player(PlayerConfig player)
 {
-    if (!app->playing || game_result(&app->game) || cell >= GAME_COLS ||
-        (human_turn(app) && game_drop_row(&app->game, cell) < 0))
-        return;
-    Score scores[GAME_COLS];
-    game_evaluate(&app->game, app->random, scores);
-    if (!human_turn(app))
-        cell = (unsigned) game_best_move(scores);
-    game_record(app->history, &app->game, scores, cell, human_turn(app));
-    game_play(&app->game, cell);
-    gtk_widget_queue_draw(app->board);
+    if (player.kind == PLAYER_OLLAMA)
+        return g_strdup_printf("Ollama (%s; %s; raciocínio ampliado %s)", player.model,
+            player.ollama_assisted ? "assistido" : "puro", player.ollama_thinking ? "solicitado" : "não solicitado");
+    return player.kind == PLAYER_MINIMAX ?
+        g_strdup_printf("Minimax (profundidade %u)", player.depth) : g_strdup(player_kind_name(player.kind));
+}
 
+static void play_column(App *app, unsigned move)
+{
+    if (app->closing || !app->playing || game_result(&app->game) || move >= GAME_CHOICES || game_drop_row(&app->game, move) < 0)
+        return;
+    PlayerKind kind = current_player(app).kind;
+    Score scores[GAME_CHOICES];
+    if (kind == PLAYER_HUMAN)
+        game_evaluate(&app->game, app->random, scores);
+    else {
+        if (!app->ready || app->chosen != (int) move)
+            return;
+        memcpy(scores, app->prepared_scores, sizeof scores);
+    }
+    game_record(app->history, &app->game, scores, move, kind);
+    if (kind == PLAYER_MINIMAX)
+        minimax_record(app->history, &app->prepared_minimax);
+    if (kind == PLAYER_OLLAMA)
+        ollama_record(app->history, current_player(app).model, &app->prepared_ollama);
+    app->ready = FALSE;
+    game_play(&app->game, move);
+    gtk_widget_queue_draw(app->board);
     int result = game_result(&app->game);
     if (!result) {
         schedule_turn(app);
         return;
     }
+    cancel_turn(app);
     char *message = result == 2 ? g_strdup("Empate! Nova partida em 3 segundos.") :
         g_strdup_printf("%s venceu! Nova partida em 3 segundos.", game_player_name(result));
     gtk_label_set_text(GTK_LABEL(app->status), message);
     g_free(message);
     if (result != 2) {
         GDateTime *now = g_date_time_new_now_local();
-        char *configuration = g_strdup_printf("Vermelho: %s; Amarelo: %s. Delay ao encerrar: %.1f s.",
-            app->human_red ? "humano" : "automático", app->human_yellow ? "humano" : "automático",
-            app->delay);
+        char *first = describe_player(app->players[0]), *second = describe_player(app->players[1]);
+        char *configuration = g_strdup_printf("Vermelho: %s; Amarelo: %s. Delay mínimo: %.1f s.", first, second, app->delay);
         g_queue_push_tail(&app->pending_reports,
                          game_report(&app->game, app->history->str, configuration, now));
+        g_free(first);
+        g_free(second);
         g_free(configuration);
         g_date_time_unref(now);
         flush_reports(app);
@@ -102,30 +216,170 @@ static void play_column(App *app, unsigned cell)
     app->source = g_timeout_add(3000, restart_game, app);
 }
 
+static void maybe_apply(App *app)
+{
+    if (!app->closing && app->playing && app->window && !human_turn(app) && app->ready && app->delay_elapsed &&
+        !game_result(&app->game))
+        play_column(app, (unsigned) app->chosen);
+}
+
 static gboolean automatic_move(gpointer data)
 {
     App *app = data;
     app->source = 0;
-    if (app->playing && !human_turn(app) && !game_result(&app->game))
-        play_column(app, 0);
+    app->delay_elapsed = TRUE;
+    maybe_apply(app);
     return G_SOURCE_REMOVE;
+}
+
+static void arm_delay(App *app)
+{
+    cancel_timer(app);
+    app->delay_elapsed = FALSE;
+    app->source = app->delay == 0 ? g_idle_add(automatic_move, app) :
+        g_timeout_add((guint) lround(app->delay * 1000), automatic_move, app);
+}
+
+static gboolean progress_tick(gpointer data)
+{
+    App *app = data;
+    update_status(app);
+    return G_SOURCE_CONTINUE;
+}
+
+typedef struct { TurnJob *job; GCancellable *cancel; } WorkerControl;
+
+static gboolean search_cancelled(gpointer data)
+{
+    WorkerControl *control = data;
+    return g_cancellable_is_cancelled(control->cancel);
+}
+
+static void search_progress(unsigned completed, gpointer data)
+{
+    WorkerControl *control = data;
+    g_atomic_int_set(&control->job->progress, (gint) completed);
+}
+
+static void turn_job_free(gpointer data)
+{
+    TurnJob *job = data;
+    g_free(job->player.model);
+    g_free(job->ollama_url);
+    g_free(job);
+}
+
+static void turn_worker(GTask *task, gpointer source, gpointer task_data, GCancellable *cancel)
+{
+    (void) source;
+    TurnJob *job = task_data;
+    GRand *random = g_rand_new_with_seed(job->seed);
+    game_evaluate(&job->game, random, job->scores);
+    gboolean ok = !g_cancellable_is_cancelled(cancel);
+    if (ok && job->player.kind == PLAYER_MINIMAX) {
+        WorkerControl data = {job, cancel};
+        SearchControl control = {.cancelled = search_cancelled, .progress = search_progress, .data = &data};
+        ok = minimax_evaluate(&job->game, job->player.depth, &control, &job->minimax);
+        if (ok) {
+            job->chosen = minimax_choose(&job->minimax, random);
+            job->minimax.best_move = job->chosen;
+        }
+    } else if (ok && job->player.kind == PLAYER_OLLAMA) {
+        GError *error = NULL;
+        OllamaOptions options = {.assisted = job->player.ollama_assisted, .thinking = job->player.ollama_thinking};
+        ok = ollama_choose_with_options(&job->game, job->player.model, job->ollama_url,
+                           OLLAMA_MOVE_TIMEOUT_MS, cancel, &options, &job->ollama, &error);
+        if (!ok) {
+            g_rand_free(random);
+            g_task_return_error(task, error);
+            return;
+        }
+        job->chosen = job->ollama.move;
+    } else if (ok) {
+        job->chosen = game_best_move(job->scores);
+    }
+    g_rand_free(random);
+    g_task_return_boolean(task, ok);
+}
+
+static void turn_completed(GObject *source, GAsyncResult *result, gpointer data)
+{
+    (void) source;
+    App *app = data;
+    GTask *task = G_TASK(result);
+    TurnJob *job = g_task_get_task_data(task);
+    GError *error = NULL;
+    gboolean ok = g_task_propagate_boolean(task, &error);
+    gboolean current = !app->closing && app->window && app->playing && !human_turn(app) &&
+        job->generation == app->generation && !game_result(&app->game);
+    gboolean accepted = ok && current;
+    app->job = NULL;
+    g_clear_object(&app->task);
+    g_clear_object(&app->search_cancel);
+    stop_progress(app);
+    if (accepted) {
+        memcpy(app->prepared_scores, job->scores, sizeof app->prepared_scores);
+        app->prepared_minimax = job->minimax;
+        app->prepared_ollama = job->ollama;
+        app->chosen = job->chosen;
+        app->ready = job->chosen >= 0;
+        update_status(app);
+        maybe_apply(app);
+    } else if (current && error && !g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+        app->turn_failed = TRUE;
+        cancel_timer(app);
+        g_autofree char *model = g_markup_escape_text(job->player.model ? job->player.model : "", -1);
+        g_autofree char *message = g_markup_escape_text(error->message, -1);
+        g_string_append_printf(app->history,
+            "Tentativa Ollama antes da jogada %u — modelo: %s; duração: %.3f s; erro: %s.\n\n",
+            app->game.moves + 1, model, job->ollama.elapsed_us / 1000000.0, message);
+        gtk_label_set_text(GTK_LABEL(app->turn_error_label), error->message);
+        gtk_widget_set_visible(app->turn_error_box, TRUE);
+        update_status(app);
+    } else if (!app->closing && app->window && app->playing && !human_turn(app) && !game_result(&app->game)) {
+        /* A new session waits for the cancelled task to finish before starting
+         * its search: there is never more than one worker per application. */
+        start_search(app);
+    }
+    g_clear_error(&error);
+}
+
+static void start_search(App *app)
+{
+    if (app->closing || app->turn_failed || app->task || !app->window || !app->playing || human_turn(app) || game_result(&app->game))
+        return;
+    TurnJob *job = g_new0(TurnJob, 1);
+    job->game = app->game;
+    job->player = current_player(app);
+    job->player.model = g_strdup(job->player.model);
+    job->ollama_url = g_strdup(app->ollama_url);
+    job->generation = app->generation;
+    job->seed = g_rand_int(app->random);
+    job->chosen = -1;
+    app->job = job;
+    app->search_cancel = g_cancellable_new();
+    app->task = g_task_new(NULL, app->search_cancel, turn_completed, app);
+    g_task_set_task_data(app->task, job, turn_job_free);
+    g_task_set_return_on_cancel(app->task, FALSE);
+    app->progress_source = g_timeout_add(100, progress_tick, app);
+    g_task_run_in_thread(app->task, turn_worker);
 }
 
 static void schedule_turn(App *app)
 {
-    cancel_timer(app);
-    char *message = g_strdup_printf("Vez de %s · %s", game_player_name(app->game.turn),
-                                    human_turn(app) ? "humano" : "automático");
-    gtk_label_set_text(GTK_LABEL(app->status), message);
-    g_free(message);
-    if (!human_turn(app))
-        app->source = app->delay == 0.0 ? g_idle_add(automatic_move, app) :
-            g_timeout_add((guint) lround(app->delay * 1000), automatic_move, app);
+    cancel_turn(app);
+    app->delay_elapsed = FALSE;
+    update_status(app);
+    if (!human_turn(app)) {
+        arm_delay(app);
+        start_search(app);
+    }
 }
 
 static void start_game(App *app)
 {
-    cancel_timer(app);
+    if (app->closing) return;
+    cancel_turn(app);
     game_init(&app->game);
     g_string_truncate(app->history, 0);
     app->playing = TRUE;
@@ -139,25 +393,42 @@ static void begin_clicked(GtkButton *button, gpointer data)
 {
     (void) button;
     App *app = data;
-    guint humans = gtk_drop_down_get_selected(app->humans);
-    app->human_red = humans == 2 || (humans == 1 && gtk_drop_down_get_selected(app->side) == 0);
-    app->human_yellow = humans == 2 || (humans == 1 && !app->human_red);
+    for (unsigned i = 0; i < 2; i++) {
+        if (gtk_drop_down_get_selected(app->controllers[i]) == PLAYER_OLLAMA &&
+            (!app->models_valid || gtk_drop_down_get_selected(app->models[i]) == GTK_INVALID_LIST_POSITION))
+            return;
+    }
+    for (unsigned i = 0; i < 2; i++) {
+        g_free(app->players[i].model);
+        guint selected = gtk_drop_down_get_selected(app->models[i]);
+        app->players[i].model = selected == GTK_INVALID_LIST_POSITION ? NULL :
+            g_strdup(gtk_string_list_get_string(GTK_STRING_LIST(gtk_drop_down_get_model(app->models[i])), selected));
+        app->players[i].kind = (PlayerKind) gtk_drop_down_get_selected(app->controllers[i]);
+        app->players[i].depth = (unsigned) gtk_range_get_value(GTK_RANGE(app->depth_scales[i]));
+        app->players[i].ollama_assisted = gtk_check_button_get_active(app->assist_checks[i]);
+        app->players[i].ollama_thinking = gtk_check_button_get_active(app->thinking_checks[i]);
+    }
     start_game(app);
 }
 
-static void humans_changed(GObject *object, GParamSpec *pspec, gpointer data)
+static void controller_changed(GObject *object, GParamSpec *pspec, gpointer data)
 {
     (void) object;
     (void) pspec;
     App *app = data;
-    gtk_widget_set_sensitive(GTK_WIDGET(app->side), gtk_drop_down_get_selected(app->humans) == 1);
+    update_configuration(app);
+    gboolean needed = FALSE;
+    for (unsigned i = 0; i < 2; i++)
+        needed |= gtk_drop_down_get_selected(app->controllers[i]) == PLAYER_OLLAMA;
+    if (needed && !app->models_attempted)
+        refresh_models_clicked(NULL, app);
 }
 
 static void configure_clicked(GtkButton *button, gpointer data)
 {
     (void) button;
     App *app = data;
-    cancel_timer(app);
+    cancel_turn(app);
     app->playing = FALSE;
     g_string_truncate(app->history, 0);
     gtk_stack_set_visible_child_name(GTK_STACK(app->stack), "configuration");
@@ -167,8 +438,25 @@ static void delay_changed(GtkRange *range, gpointer data)
 {
     App *app = data;
     app->delay = round(gtk_range_get_value(range) * 10) / 10;
-    if (app->playing && !game_result(&app->game) && !human_turn(app))
-        schedule_turn(app);
+    if (app->playing && !app->turn_failed && !game_result(&app->game) && !human_turn(app)) {
+        arm_delay(app);
+        update_status(app);
+    }
+}
+
+/* App stays alive until every worker and completion callback has returned.
+ * Workers own snapshots only; no GTK access or borrowed window pointers. */
+static void shutdown_jobs(App *app)
+{
+    app->closing = TRUE;
+    app->playing = FALSE;
+    cancel_turn(app);
+    if (app->models_cancel) g_cancellable_cancel(app->models_cancel);
+    while (app->task || app->models_task)
+        g_main_context_iteration(NULL, TRUE);
+    for (unsigned i = 0; i < 2; i++)
+        g_clear_pointer(&app->players[i].model, g_free);
+    g_clear_pointer(&app->ollama_url, g_free);
 }
 
 typedef struct {
@@ -310,6 +598,104 @@ static void set_margins(GtkWidget *widget, int margin)
     gtk_widget_set_margin_bottom(widget, margin);
 }
 
+static const char *selected_model(App *app, unsigned player)
+{
+    guint selected = gtk_drop_down_get_selected(app->models[player]);
+    return selected == GTK_INVALID_LIST_POSITION ? NULL :
+        gtk_string_list_get_string(GTK_STRING_LIST(gtk_drop_down_get_model(app->models[player])), selected);
+}
+
+static void update_configuration(App *app)
+{
+    gboolean needed = FALSE, valid = TRUE;
+    for (unsigned i = 0; i < 2; i++) {
+        if (!app->models[i]) continue; /* Configuration widgets are being built. */
+        guint kind = gtk_drop_down_get_selected(app->controllers[i]);
+        gboolean ollama = kind == PLAYER_OLLAMA;
+        needed |= ollama;
+        valid &= !ollama || (app->models_valid && selected_model(app, i));
+        gtk_widget_set_visible(app->depth_rows[i], kind == PLAYER_MINIMAX);
+        gtk_widget_set_visible(app->model_rows[i], ollama);
+        gtk_widget_set_visible(app->ollama_options[i], ollama);
+        gtk_widget_set_sensitive(GTK_WIDGET(app->models[i]), app->models_valid);
+    }
+    if (!app->begin_button) return;
+    gtk_widget_set_sensitive(app->begin_button, valid);
+    gtk_widget_set_visible(app->refresh_models, needed);
+    gtk_widget_set_sensitive(app->refresh_models, app->models_task == NULL);
+    gtk_widget_set_visible(app->model_status, needed);
+}
+
+static void model_changed(GObject *object, GParamSpec *pspec, gpointer data)
+{
+    (void) object;
+    (void) pspec;
+    update_configuration(data);
+}
+
+static void models_worker(GTask *task, gpointer source, gpointer data, GCancellable *cancel)
+{
+    (void) source;
+    GError *error = NULL;
+    char **names = ollama_list_models(data, OLLAMA_LIST_TIMEOUT_MS, cancel, &error);
+    if (names) g_task_return_pointer(task, names, (GDestroyNotify) g_strfreev);
+    else g_task_return_error(task, error);
+}
+
+static void models_completed(GObject *source, GAsyncResult *result, gpointer data)
+{
+    (void) source;
+    App *app = data;
+    GError *error = NULL;
+    g_auto(GStrv) names = g_task_propagate_pointer(G_TASK(result), &error);
+    g_clear_object(&app->models_task);
+    g_clear_object(&app->models_cancel);
+    if (!app->closing && app->window) {
+        app->models_valid = names && names[0];
+        if (names) {
+            /* Preserve each player's choice independently across refreshes. */
+            for (unsigned i = 0; i < 2; i++) {
+                g_autofree char *previous = g_strdup(selected_model(app, i));
+                g_autoptr(GtkStringList) strings = gtk_string_list_new((const char * const *) names);
+                gtk_drop_down_set_model(app->models[i], G_LIST_MODEL(strings));
+                guint selected = names[0] ? 0 : GTK_INVALID_LIST_POSITION;
+                for (unsigned j = 0; names[j]; j++)
+                    if (g_strcmp0(previous, names[j]) == 0) selected = j;
+                gtk_drop_down_set_selected(app->models[i], selected);
+            }
+        }
+        gtk_label_set_text(GTK_LABEL(app->model_status), error ? error->message :
+            app->models_valid ? "Modelos disponíveis no Ollama local." :
+            "Nenhum modelo disponível. Instale um modelo no Ollama e atualize a lista.");
+        update_configuration(app);
+    }
+    g_clear_error(&error);
+}
+
+static void refresh_models_clicked(GtkButton *button, gpointer data)
+{
+    (void) button;
+    App *app = data;
+    if (app->closing || app->models_task) return;
+    app->models_attempted = TRUE;
+    app->models_valid = FALSE;
+    app->models_cancel = g_cancellable_new();
+    app->models_task = g_task_new(NULL, app->models_cancel, models_completed, app);
+    g_task_set_task_data(app->models_task, g_strdup(app->ollama_url), g_free);
+    g_task_set_return_on_cancel(app->models_task, FALSE);
+    gtk_label_set_text(GTK_LABEL(app->model_status), "Carregando modelos…");
+    update_configuration(app);
+    g_task_run_in_thread(app->models_task, models_worker);
+}
+
+static void retry_ollama(GtkButton *button, gpointer data)
+{
+    (void) button;
+    App *app = data;
+    if (app->playing && app->turn_failed && current_player(app).kind == PLAYER_OLLAMA)
+        schedule_turn(app);
+}
+
 static GtkWidget *make_configuration(App *app)
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
@@ -319,17 +705,62 @@ static GtkWidget *make_configuration(App *app)
     GtkWidget *title = gtk_label_new("Lig-4");
     gtk_widget_add_css_class(title, "title-1");
     gtk_box_append(GTK_BOX(box), title);
-    gtk_box_append(GTK_BOX(box), gtk_label_new("Quantas pessoas vão jogar?"));
-    const char *players[] = {"0 — dois jogadores automáticos", "1 — humano e computador", "2 — dois humanos", NULL};
-    app->humans = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(players));
-    gtk_drop_down_set_selected(app->humans, 1);
-    gtk_box_append(GTK_BOX(box), GTK_WIDGET(app->humans));
-    gtk_box_append(GTK_BOX(box), gtk_label_new("No modo com um humano, jogar como:"));
-    const char *sides[] = {"Vermelho — joga primeiro", "Amarelo — joga depois", NULL};
-    app->side = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(sides));
-    gtk_box_append(GTK_BOX(box), GTK_WIDGET(app->side));
-    g_signal_connect(app->humans, "notify::selected", G_CALLBACK(humans_changed), app);
+    const char *types[] = {"Humano", "Posicional", "Minimax", "Ollama", NULL};
+    const char *labels[] = {"Vermelho — começa", "Amarelo"};
+    for (unsigned i = 0; i < 2; i++) {
+        gtk_box_append(GTK_BOX(box), gtk_label_new(labels[i]));
+        app->controllers[i] = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(types));
+        gtk_drop_down_set_selected(app->controllers[i], i == 0 ? PLAYER_HUMAN : PLAYER_POSITIONAL);
+        gtk_box_append(GTK_BOX(box), GTK_WIDGET(app->controllers[i]));
+        app->depth_rows[i] = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+        gtk_box_append(GTK_BOX(app->depth_rows[i]), gtk_label_new("Profundidade (jogadas)"));
+        app->depth_scales[i] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 1, GAME_MAX_DEPTH, 1);
+        gtk_scale_set_digits(GTK_SCALE(app->depth_scales[i]), 0);
+        gtk_scale_set_draw_value(GTK_SCALE(app->depth_scales[i]), TRUE);
+        gtk_scale_set_value_pos(GTK_SCALE(app->depth_scales[i]), GTK_POS_RIGHT);
+        gtk_range_set_round_digits(GTK_RANGE(app->depth_scales[i]), 0);
+        gtk_widget_set_tooltip_text(app->depth_scales[i],
+            "Cada nível é uma jogada individual. Valores maiores podem demorar; Nova configuração cancela a análise.");
+        gtk_range_set_value(GTK_RANGE(app->depth_scales[i]), DEFAULT_MINIMAX_DEPTH);
+        gtk_widget_set_hexpand(app->depth_scales[i], TRUE);
+        gtk_box_append(GTK_BOX(app->depth_rows[i]), app->depth_scales[i]);
+        gtk_box_append(GTK_BOX(box), app->depth_rows[i]);
+        gtk_widget_set_visible(app->depth_rows[i], FALSE);
+        app->model_rows[i] = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+        gtk_box_append(GTK_BOX(app->model_rows[i]), gtk_label_new("Modelo"));
+        const char *empty[] = {NULL};
+        app->models[i] = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(empty));
+        gtk_drop_down_set_enable_search(app->models[i], TRUE);
+        gtk_widget_set_hexpand(GTK_WIDGET(app->models[i]), TRUE);
+        gtk_box_append(GTK_BOX(app->model_rows[i]), GTK_WIDGET(app->models[i]));
+        gtk_box_append(GTK_BOX(box), app->model_rows[i]);
+        gtk_widget_set_visible(app->model_rows[i], FALSE);
+        app->ollama_options[i] = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+        app->assist_checks[i] = GTK_CHECK_BUTTON(gtk_check_button_new_with_label("Assistência tática"));
+        gtk_widget_set_tooltip_text(GTK_WIDGET(app->assist_checks[i]),
+            "Prioriza vitórias imediatas e, quando possível, exclui jogadas que permitem vitória adversária no próximo lance. Desmarcado: Ollama puro.");
+        app->thinking_checks[i] = GTK_CHECK_BUTTON(gtk_check_button_new_with_label("Raciocínio ampliado"));
+        gtk_check_button_set_active(app->thinking_checks[i], TRUE);
+        gtk_widget_set_tooltip_text(GTK_WIDGET(app->thinking_checks[i]),
+            "Solicita raciocínio compatível com o modelo. Cogito usa análise e decisão em duas consultas. Pode demorar mais; desmarcado mantém o padrão do modelo.");
+        gtk_box_append(GTK_BOX(app->ollama_options[i]), GTK_WIDGET(app->assist_checks[i]));
+        gtk_box_append(GTK_BOX(app->ollama_options[i]), GTK_WIDGET(app->thinking_checks[i]));
+        gtk_box_append(GTK_BOX(box), app->ollama_options[i]);
+        gtk_widget_set_visible(app->ollama_options[i], FALSE);
+        g_signal_connect(app->models[i], "notify::selected", G_CALLBACK(model_changed), app);
+        g_signal_connect(app->controllers[i], "notify::selected", G_CALLBACK(controller_changed), app);
+    }
+    app->model_status = gtk_label_new("");
+    gtk_label_set_wrap(GTK_LABEL(app->model_status), TRUE);
+    gtk_label_set_max_width_chars(GTK_LABEL(app->model_status), 55);
+    gtk_widget_set_visible(app->model_status, FALSE);
+    gtk_box_append(GTK_BOX(box), app->model_status);
+    app->refresh_models = gtk_button_new_with_label("Atualizar modelos");
+    g_signal_connect(app->refresh_models, "clicked", G_CALLBACK(refresh_models_clicked), app);
+    gtk_widget_set_visible(app->refresh_models, FALSE);
+    gtk_box_append(GTK_BOX(box), app->refresh_models);
     GtkWidget *button = gtk_button_new_with_label("Iniciar partida");
+    app->begin_button = button;
     gtk_widget_add_css_class(button, "suggested-action");
     g_signal_connect(button, "clicked", G_CALLBACK(begin_clicked), app);
     gtk_box_append(GTK_BOX(box), button);
@@ -363,10 +794,23 @@ static GtkWidget *make_game(App *app)
     gtk_range_set_round_digits(GTK_RANGE(app->scale), 1);
     gtk_range_set_value(GTK_RANGE(app->scale), app->delay);
     gtk_widget_set_hexpand(app->scale, TRUE);
-    gtk_widget_set_tooltip_text(app->scale, "Espera antes de cada jogada automática, em segundos");
+    gtk_widget_set_tooltip_text(app->scale, "Espera mínima do turno automático; o cálculo ocorre durante a espera");
     g_signal_connect(app->scale, "value-changed", G_CALLBACK(delay_changed), app);
     gtk_box_append(GTK_BOX(delay_box), app->scale);
     gtk_box_append(GTK_BOX(box), delay_box);
+
+    app->turn_error_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    set_margins(app->turn_error_box, 12);
+    gtk_widget_add_css_class(app->turn_error_box, "error");
+    app->turn_error_label = gtk_label_new("");
+    gtk_label_set_wrap(GTK_LABEL(app->turn_error_label), TRUE);
+    gtk_widget_set_hexpand(app->turn_error_label, TRUE);
+    gtk_box_append(GTK_BOX(app->turn_error_box), app->turn_error_label);
+    GtkWidget *retry_turn = gtk_button_new_with_label("Tentar novamente");
+    g_signal_connect(retry_turn, "clicked", G_CALLBACK(retry_ollama), app);
+    gtk_box_append(GTK_BOX(app->turn_error_box), retry_turn);
+    gtk_widget_set_visible(app->turn_error_box, FALSE);
+    gtk_box_append(GTK_BOX(box), app->turn_error_box);
 
     app->board = gtk_drawing_area_new();
     gtk_widget_set_hexpand(app->board, TRUE);
@@ -386,7 +830,9 @@ static void window_destroyed(GtkWidget *widget, gpointer data)
 {
     (void) widget;
     App *app = data;
-    cancel_timer(app);
+    app->closing = TRUE;
+    if (app->models_cancel) g_cancellable_cancel(app->models_cancel);
+    cancel_turn(app);
     app->playing = FALSE;
     app->window = NULL;
 }
@@ -448,7 +894,7 @@ int main(int argc, char **argv)
                                                         G_APPLICATION_NON_UNIQUE));
     g_signal_connect(app.application, "activate", G_CALLBACK(activate), &app);
     int result = g_application_run(G_APPLICATION(app.application), argc, argv);
-    cancel_timer(&app);
+    shutdown_jobs(&app);
     g_object_unref(app.application);
     g_queue_clear_full(&app.pending_reports, g_free);
     g_string_free(app.history, TRUE);

@@ -10,10 +10,10 @@ else
 SELECTED_GAMES := $(GAMES)
 endif
 
-.PHONY: all build configure test test-ui install clean run help
+.PHONY: all build configure test test-ui test-ollama install clean run help
 all: build
 
-build configure test test-ui install clean:
+build configure test test-ui test-ollama install clean:
 	+@set -e; for game in $(SELECTED_GAMES); do $(MAKE) -C "$$game" $@; done
 
 run:
@@ -22,6 +22,7 @@ run:
 help:
 	@printf '%s\n' \
 		'make / make test / make install / make clean: atuar nos dois jogos' \
+		'make test-ollama: testar a integração Ollama nos dois jogos' \
 		'make GAME=connect-4: compilar apenas o Lig-4' \
 		'make run: executar o jogo da velha' \
 		'make GAME=connect-4 run: executar o Lig-4' \
