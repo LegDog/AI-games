@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Jogo da velha
+Comment=Jogue com pessoas ou acompanhe jogadores automáticos
+Exec=jogo-da-velha
+Icon=io.github.aigames.JogoDaVelha
+Terminal=false
+Categories=Game;BoardGame;GTK;
+StartupNotify=true
