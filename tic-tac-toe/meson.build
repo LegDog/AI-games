@@ -2,7 +2,7 @@ project('tic-tac-toe', 'c', version: '1.0.0',
   license: 'GPL-3.0-or-later', license_files: 'COPYING',
   default_options: ['c_std=c11', 'warning_level=3'])
 
-glib = dependency('glib-2.0', version: '>=2.66')
+glib = dependency('glib-2.0', version: '>=2.66', include_type: 'system')
 engine = static_library('game', ['src/game.c', 'src/minimax.c', 'src/i18n.c'], dependencies: glib)
 engine_dep = declare_dependency(link_with: engine, dependencies: glib,
   include_directories: include_directories('src'))
@@ -12,10 +12,10 @@ test('i18n', executable('test-i18n', 'tests/test-i18n.c', dependencies: engine_d
 test('game', executable('test-game', 'tests/test-game.c', dependencies: engine_dep))
 
 if get_option('app')
-  gtk = dependency('gtk4', version: '>=4.10')
-  adw = dependency('libadwaita-1', version: '>=1.4')
-  soup = dependency('libsoup-3.0', version: '>=3.0')
-  json = dependency('json-glib-1.0', version: '>=1.6')
+  gtk = dependency('gtk4', version: '>=4.10', include_type: 'system')
+  adw = dependency('libadwaita-1', version: '>=1.4', include_type: 'system')
+  soup = dependency('libsoup-3.0', version: '>=3.0', include_type: 'system')
+  json = dependency('json-glib-1.0', version: '>=1.6', include_type: 'system')
   ollama = static_library('ollama', 'src/ollama.c', dependencies: [engine_dep, soup, json])
   ollama_dep = declare_dependency(link_with: ollama, dependencies: [engine_dep, soup, json])
   test('ollama-log', executable('test-ollama-log', 'tests/test-ollama-log.c', dependencies: [engine_dep, soup, json]))
