@@ -864,9 +864,10 @@ static void refresh_language(App *app)
         gtk_drop_down_set_model(app->controllers[i], G_LIST_MODEL(names));
         gtk_drop_down_set_selected(app->controllers[i], selected);
     }
-    const char *languages[] = {_("System default"), "English", "Português", "Español", "Italiano", NULL};
-    g_autoptr(GtkStringList) names = gtk_string_list_new(languages);
-    gtk_drop_down_set_model(app->languages, G_LIST_MODEL(names));
+    /* This runs inside the language drop-down's selection notification, which
+     * still references its current selection model: translate in place. */
+    const char *system_name[] = {_("System default"), NULL};
+    gtk_string_list_splice(GTK_STRING_LIST(gtk_drop_down_get_model(app->languages)), 0, 1, system_name);
     gtk_drop_down_set_selected(app->languages, i18n_selection());
     ui_retranslate_tree(GTK_WIDGET(app->window));
     refresh_model_status(app);
@@ -889,7 +890,8 @@ static void language_changed(GObject *object, GParamSpec *pspec, gpointer data)
     App *app = data;
     if (app->translating || app->closing) return;
     guint selected = gtk_drop_down_get_selected(app->languages);
-    if (selected >= I18N_LANGUAGE_COUNT) return;
+    /* Refreshing re-notifies the selection; ignore it once applied. */
+    if (selected >= I18N_LANGUAGE_COUNT || selected == i18n_selection()) return;
     i18n_set_language((I18nLanguage) selected);
     refresh_language(app);
     GError *error = NULL;
