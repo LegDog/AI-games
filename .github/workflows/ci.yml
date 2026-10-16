@@ -1,0 +1,46 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GDK_BACKEND: x11
+      GSK_RENDERER: cairo
+      GTK_A11Y: none
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install build and display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential meson ninja-build pkg-config libglib2.0-dev libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev libjson-glib-dev xvfb xauth dbus-x11 desktop-file-utils
+      - name: Audit publication contents and history
+        run: |
+          python3 scripts/test-audit-history.py
+          python3 scripts/audit-history.py
+      - name: Build and test with warnings as errors
+        run: |
+          make MESON_ARGS=-Dwerror=true
+          make test MESON_ARGS=-Dwerror=true
+          make test-ollama MESON_ARGS=-Dwerror=true
+          python3 scripts/test-tournament.py
+          desktop-file-validate four-in-a-row/data/*.desktop tic-tac-toe/data/*.desktop
+      - name: GUI tests and actual application screenshots
+        run: |
+          xvfb-run -a dbus-run-session -- make test-ui MESON_ARGS=-Dwerror=true
+          xvfb-run -a dbus-run-session -- four-in-a-row/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- tic-tac-toe/build-ui/screenshot screenshots
+      - name: Upload screenshots
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: application-screenshots
+          path: screenshots/*.png
+          if-no-files-found: error

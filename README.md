@@ -8,12 +8,26 @@ English is the primary language for project documentation and contributions.
 The repository currently contains two independent GNOME applications written
 in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 
-- [Tic-Tac-Toe](jogo-da-velha/README.md): a 3×3 board, mouse and numeric keypad controls.
-- [Connect Four](connect-4/README.md): a 7×6 board with gravity, mouse and 1–7 key controls.
+- [Tic-Tac-Toe](tic-tac-toe/README.md): a 3×3 board, mouse and numeric keypad controls.
+- [AI Games: Four in a Row](four-in-a-row/README.md): a 7×6 board with gravity, mouse and 1–7 key controls.
 
 Each directory contains its own engine, interface, tests, Makefile, Meson
-project, installation resources, and license copy. Either application can be
-built and used independently.
+project, installation resources, and license copy. Within this checkout, either application can be
+built and used independently. Shared development drivers live in `tools/`.
+
+## Contributing and comparing algorithms
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). The
+[headless tournament runner](docs/experiments.md) exports repeatable CSV results
+with seeds, controller settings, and move sequences. CI builds both apps,
+runs engine, translation, Ollama, and GUI tests, and captures the actual
+interfaces. See [screenshot instructions](docs/screenshots.md) for generating
+and reviewing previews.
+
+Before sharing diagnostics, read the [log privacy and rotation guide](docs/logging.md).
+The [publication review](docs/publication.md) describes history checks and
+remaining release validation, including migration from the former application
+names and IDs.
 
 ## Dependencies and build
 
@@ -32,10 +46,10 @@ The build uses the libraries and development files installed on your system.
 ```sh
 make                              # build both applications
 make run                          # launch Tic-Tac-Toe
-make GAME=connect-4 run            # launch Connect Four
-make GAME=connect-4                # build only Connect Four
+make GAME=four-in-a-row run            # launch Four in a Row
+make GAME=four-in-a-row                # build only Four in a Row
 make test                         # test both engines without a display
-make GAME=connect-4 test           # test one engine
+make GAME=four-in-a-row test           # test one engine
 make test-ollama                   # test both Ollama clients and logs
 make test-ui                      # include GUI tests; requires a display
 make install                      # install both applications under ~/.local
@@ -49,7 +63,7 @@ to Tic-Tac-Toe. `PREFIX`, `MESON_ARGS`, and `DESTDIR` are forwarded to each
 application's Makefile. Relative build paths are relative to each application's
 directory.
 
-You can also use `make -C connect-4`, or enter either game directory and run
+You can also use `make -C four-in-a-row`, or enter either game directory and run
 `make`, `make run`, `make test`, `make test-ui`, `make install`, or `make clean`.
 For an optimized build, use `make MESON_ARGS='-Dbuildtype=release'`.
 
@@ -57,7 +71,7 @@ For an optimized build, use `make MESON_ARGS='-Dbuildtype=release'`.
 
 Each side has a **Human / Positional / Minimax / Ollama** selector, allowing
 all combinations. Each Minimax player has its own search depth: 1–9 (default 9)
-in Tic-Tac-Toe and 1–12 (default 6) in Connect Four. The default is a human
+in Tic-Tac-Toe and 1–12 (default 6) in Four in a Row. The default is a human
 first player and a positional second player. Searches run in the background
 and complete the selected depth; **New configuration** cancels analysis.
 
@@ -70,9 +84,9 @@ Before every human or automated move, evaluation components are recorded in
 memory. Games with a winner are appended to the history with a timestamp;
 draws and abandoned games are not saved.
 
-Tic-Tac-Toe uses `histórico.md`; Connect Four uses `histórico-connect-4.md`.
+Tic-Tac-Toe uses `tic-tac-toe-history.md`; Four in a Row uses `four-in-a-row-history.md`.
 Paths are relative to the working directory. `make run` and
-`make GAME=connect-4 run` launch inside the respective application directory.
+`make GAME=four-in-a-row run` launch inside the respective application directory.
 Direct launches and GNOME launchers use the working directory supplied by
 the terminal or desktop.
 
@@ -90,7 +104,7 @@ addition to GTK and libadwaita. `make test-ollama` tests the clients;
 libraries. See each game's README for configuration, error handling, and
 history details.
 
-All Ollama communication is appended to `ollama.log` in the working directory,
+All Ollama communication is appended to `<game>-ollama.log` in the working directory,
 including prompts, complete responses, and `thinking` when returned by the
 model. The format is JSON Lines; `OLLAMA_LOG_FILE` overrides the path.
 
@@ -101,7 +115,7 @@ Cogito v1 can analyze before producing its JSON decision. The game READMEs
 explain these controls and their limits.
 
 Communication failures, validation errors, and timeouts are also appended to
-`ollama-error.log`; `OLLAMA_ERROR_LOG_FILE` overrides its path. Both logs share
+`<game>-ollama-error.log`; `OLLAMA_ERROR_LOG_FILE` overrides its path. Both logs share
 operation and request identifiers for diagnosis. In Tic-Tac-Toe, tactical
 assistance searches to the end of the game and excludes forced losses when an
 alternative exists, while the model chooses among the permitted moves. The
@@ -115,3 +129,15 @@ preferred supported language, with **English** as the fallback. Changes apply
 immediately and are saved independently for each app under
 `~/.config/ai-games/` (or `$XDG_CONFIG_HOME/ai-games/`). Translations are embedded
 in the binaries; the normal build and `make test` include internationalization.
+
+Default output files are separate even when both games run in the same directory:
+
+| Game | History | Ollama communication | Ollama errors |
+| --- | --- | --- | --- |
+| Tic-Tac-Toe | `tic-tac-toe-history.md` | `tic-tac-toe-ollama.log` | `tic-tac-toe-ollama-error.log` |
+| Four in a Row | `four-in-a-row-history.md` | `four-in-a-row-ollama.log` | `four-in-a-row-ollama-error.log` |
+
+Each JSON log entry also includes its game ID, and each saved game history
+heading includes its game name. Existing files keep their original names and
+contents; new writes use the defaults above. Explicit log-path environment
+variables still override the default filenames.

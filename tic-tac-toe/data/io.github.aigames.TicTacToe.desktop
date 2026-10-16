@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Tic-Tac-Toe
+Name[pt]=Jogo da velha
+Name[es]=Tres en raya
+Name[it]=Tris
+Comment=Play with people or watch automated players
+Comment[pt]=Jogue com pessoas ou acompanhe jogadores automáticos
+Comment[es]=Juega con personas o mira a jugadores automáticos
+Comment[it]=Gioca con altre persone o guarda i giocatori automatici
+Exec=tic-tac-toe
+Icon=io.github.aigames.TicTacToe
+Terminal=false
+Categories=Game;BoardGame;GTK;
+StartupNotify=true

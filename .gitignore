@@ -29,10 +29,26 @@ histórico*.md
 
 # Local environment and credentials
 /.aws/
-/.env
-/.env.*
-!/.env.example
+.env
+.env.*
+!.env.example
 
 # Full Ollama request/response traces
 ollama.log
+ollama.log.*
 ollama-error.log
+ollama-error.log.*
+
+# Local experiment exports and screenshot captures
+/results/
+/screenshots/
+tournament
+__pycache__/
+*.pyc
+
+# Game-specific logs, rotated logs and histories
+*-ollama.log
+*-ollama.log.*
+*-ollama-error.log
+*-ollama-error.log.*
+*-history.md

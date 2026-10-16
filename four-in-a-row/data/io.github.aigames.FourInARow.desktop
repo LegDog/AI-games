@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Four in a Row
+Name[pt]=AI Games: Quatro em linha
+Name[es]=AI Games: Cuatro en línea
+Name[it]=AI Games: Quattro in fila
+Comment=Connect four pieces with human or automated players
+Comment[pt]=Alinhe quatro peças com pessoas ou jogadores automáticos
+Comment[es]=Alinea cuatro fichas con personas o jugadores automáticos
+Comment[it]=Allinea quattro pedine con giocatori umani o automatici
+Exec=four-in-a-row
+Icon=io.github.aigames.FourInARow
+Terminal=false
+Categories=Game;BoardGame;GTK;
+StartupNotify=true
