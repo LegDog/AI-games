@@ -1,62 +1,29 @@
 .DEFAULT_GOAL := all
 
-MESON ?= meson
-BUILD_DIR ?= build
-TEST_BUILD_DIR ?= build-tests
-UI_BUILD_DIR ?= build-ui
-PREFIX ?= $(HOME)/.local
-MESON_ARGS ?=
+GAMES := jogo-da-velha connect-4
+ifdef GAME
+ifeq ($(filter $(GAME),$(GAMES)),)
+$(error GAME deve ser jogo-da-velha ou connect-4)
+endif
+SELECTED_GAMES := $(GAME)
+else
+SELECTED_GAMES := $(GAMES)
+endif
 
-.PHONY: all configure build run test test-ui install clean help
-
+.PHONY: all build configure test test-ui install clean run help
 all: build
 
-configure:
-	@if [ -f "$(BUILD_DIR)/meson-private/coredata.dat" ]; then \
-		$(MESON) setup --reconfigure "$(BUILD_DIR)" --prefix="$(PREFIX)" -Dapp=true -Dui_tests=false $(MESON_ARGS); \
-	else \
-		$(MESON) setup "$(BUILD_DIR)" --prefix="$(PREFIX)" -Dapp=true -Dui_tests=false $(MESON_ARGS); \
-	fi
+build configure test test-ui install clean:
+	+@set -e; for game in $(SELECTED_GAMES); do $(MAKE) -C "$$game" $@; done
 
-build: configure
-	$(MESON) compile -C "$(BUILD_DIR)"
-
-run: build
-	"$(abspath $(BUILD_DIR))/jogo-da-velha"
-
-# Engine tests do not require GTK or libadwaita development packages.
-test:
-	@if [ -f "$(TEST_BUILD_DIR)/meson-private/coredata.dat" ]; then \
-		$(MESON) setup --reconfigure "$(TEST_BUILD_DIR)" -Dapp=false -Dui_tests=false; \
-	else \
-		$(MESON) setup "$(TEST_BUILD_DIR)" -Dapp=false -Dui_tests=false; \
-	fi
-	$(MESON) test -C "$(TEST_BUILD_DIR)" --print-errorlogs
-
-test-ui:
-	@if [ -f "$(UI_BUILD_DIR)/meson-private/coredata.dat" ]; then \
-		$(MESON) setup --reconfigure "$(UI_BUILD_DIR)" -Dapp=true -Dui_tests=true $(MESON_ARGS); \
-	else \
-		$(MESON) setup "$(UI_BUILD_DIR)" -Dapp=true -Dui_tests=true $(MESON_ARGS); \
-	fi
-	$(MESON) test -C "$(UI_BUILD_DIR)" --print-errorlogs
-
-install: build
-	DESTDIR="$(DESTDIR)" $(MESON) install -C "$(BUILD_DIR)"
-
-clean:
-	@for dir in "$(BUILD_DIR)" "$(TEST_BUILD_DIR)" "$(UI_BUILD_DIR)"; do \
-		if [ -f "$$dir/meson-private/coredata.dat" ]; then \
-			$(MESON) compile -C "$$dir" --clean || exit $$?; \
-		fi; \
-	done
+run:
+	+$(MAKE) -C "$(or $(GAME),jogo-da-velha)" run
 
 help:
 	@printf '%s\n' \
-		'make             Compilar o aplicativo' \
-		'make run         Compilar e executar' \
-		'make test        Testar o motor sem dependências gráficas' \
-		'make test-ui     Testar também a interface (requer display)' \
-		'make install     Instalar em PREFIX (padrão: ~/.local)' \
-		'make clean       Limpar os artefatos gerenciados pelo Meson' \
-		'Variáveis: PREFIX, BUILD_DIR, TEST_BUILD_DIR, UI_BUILD_DIR, MESON_ARGS'
+		'make / make test / make install / make clean: atuar nos dois jogos' \
+		'make GAME=connect-4: compilar apenas o Lig-4' \
+		'make run: executar o jogo da velha' \
+		'make GAME=connect-4 run: executar o Lig-4' \
+		'make -C connect-4 help: opções do projeto individual' \
+		'Variáveis de build (PREFIX, MESON_ARGS, etc.) são repassadas aos projetos.'

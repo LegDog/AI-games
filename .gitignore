@@ -1,20 +1,19 @@
 # Meson/Ninja build directories (application, engine tests and UI tests)
-/build/
-/build-*/
-/subprojects/packagecache/
-/compile_commands.json
+build/
+build-*/
+subprojects/packagecache/
+compile_commands.json
 
 # C build artifacts
 *.o
 *.a
 *.so
 *.so.*
-/jogo-da-velha
-/test-game
-/test-ui
+test-game
+test-ui
 
 # Local game histories, including numbered archives
-/histórico*.md
+histórico*.md
 
 # Editor backups and local caches
 *~

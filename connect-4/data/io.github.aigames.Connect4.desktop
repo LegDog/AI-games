@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Lig-4
+Comment=Alinhe quatro peças com pessoas ou jogadores automáticos
+Exec=connect-4
+Icon=io.github.aigames.Connect4
+Terminal=false
+Categories=Game;BoardGame;GTK;
+StartupNotify=true
