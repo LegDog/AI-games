@@ -150,7 +150,26 @@ static void test_invalid(Fixture *f, gconstpointer data)
     f->body = "{\"error\":\"model missing\"}";
     run(&call);
     g_assert_error(call.error, G_IO_ERROR, G_IO_ERROR_FAILED);
+    g_assert_nonnull(strstr(call.error->message, "model missing"));
     g_clear_error(&call.error);
+    g_autofree char *trace = NULL;
+    GError *error = NULL;
+    g_assert_true(g_file_get_contents(g_getenv("OLLAMA_ERROR_LOG_FILE"), &trace, NULL, &error));
+    g_assert_no_error(error);
+    g_auto(GStrv) lines = g_strsplit(trace, "\n", -1);
+    gboolean found = FALSE;
+    for (unsigned i = 0; lines[i] && *lines[i]; i++) {
+        g_autoptr(JsonParser) parser = json_parser_new();
+        g_assert_true(json_parser_load_from_data(parser, lines[i], -1, &error));
+        g_assert_no_error(error);
+        JsonObject *entry = json_node_get_object(json_parser_get_root(parser));
+        if (!g_str_equal(json_object_get_string_member(entry, "event"), "http_error")) continue;
+        found = TRUE;
+        g_assert_cmpint(json_object_get_int_member(entry, "status"), ==, 404);
+        g_assert_cmpstr(json_object_get_string_member(entry, "body"), ==, f->body);
+        g_assert_cmpstr(json_object_get_string_member(entry, "model"), ==, call.model);
+    }
+    g_assert_true(found);
 }
 
 static gboolean cancel_call(gpointer data)
@@ -220,6 +239,22 @@ static void test_cancel_without_service(void)
     }
     g_assert_cmpuint(requests, >=, 2);
     g_assert_cmpuint(cancellations, >=, 2);
+    g_autofree char *error_trace = NULL;
+    g_assert_true(g_file_get_contents(g_getenv("OLLAMA_ERROR_LOG_FILE"), &error_trace, NULL, &error));
+    g_assert_no_error(error);
+    g_assert_nonnull(strstr(error_trace, "model:tag"));
+    g_auto(GStrv) failures = g_strsplit(error_trace, "\n", -1);
+    for (unsigned i = 0; failures[i] && *failures[i]; i++) {
+        g_autoptr(JsonParser) parser = json_parser_new();
+        g_assert_true(json_parser_load_from_data(parser, failures[i], -1, &error));
+        g_assert_no_error(error);
+        JsonObject *entry = json_node_get_object(json_parser_get_root(parser));
+        const char *event = json_object_get_string_member(entry, "event");
+        g_assert_cmpstr(event, !=, "request");
+        g_assert_cmpstr(event, !=, "response");
+        g_assert_nonnull(json_object_get_string_member(entry, "operation_id"));
+        g_assert_nonnull(json_object_get_string_member(entry, "error"));
+    }
 }
 
 static void test_protocol_without_network(void)
@@ -458,6 +493,8 @@ int main(int argc, char **argv)
     g_assert_no_error(error);
     g_autofree char *log_path = g_build_filename(directory, "ollama.log", NULL);
     g_setenv("OLLAMA_LOG_FILE", log_path, TRUE);
+    g_autofree char *error_log_path = g_build_filename(directory, "ollama-error.log", NULL);
+    g_setenv("OLLAMA_ERROR_LOG_FILE", error_log_path, TRUE);
     g_test_add_func("/ollama/tactical-filter-without-network", test_tactical_filter);
     g_test_add_func("/ollama/protocol-without-network", test_protocol_without_network);
     g_test_add_func("/ollama/cancel-without-service", test_cancel_without_service);
@@ -469,6 +506,7 @@ int main(int argc, char **argv)
     g_test_add("/ollama/deadline-cancel", Fixture, NULL, setup, test_deadline, teardown);
     int result = g_test_run();
     g_remove(log_path);
+    g_remove(error_log_path);
     g_rmdir(directory);
     return result;
 }

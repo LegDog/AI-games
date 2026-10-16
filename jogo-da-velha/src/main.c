@@ -4,6 +4,7 @@
 #include "game.h"
 #include "minimax.h"
 #include "ollama.h"
+#include "ui-i18n.h"
 
 #define DEFAULT_MINIMAX_DEPTH 9
 
@@ -24,7 +25,10 @@ typedef struct {
     GtkApplication *application;
     GtkWindow *window;
     GtkWidget *stack, *board, *status, *scale, *error_box, *error_label;
-    GtkDropDown *controllers[2];
+    GtkDropDown *controllers[2], *languages;
+    gboolean translating;
+    char *language_path, *save_error, *turn_error, *models_error;
+    const char *models_status_key;
     GtkWidget *depth_rows[2], *depth_scales[2];
     PlayerConfig players[2];
     GtkDropDown *models[2];
@@ -60,6 +64,8 @@ static void start_search(App *app);
 static void maybe_apply(App *app);
 static void refresh_models_clicked(GtkButton *button, gpointer data);
 static void update_configuration(App *app);
+static void refresh_model_status(App *app);
+static void refresh_language(App *app);
 
 static PlayerConfig current_player(const App *app)
 {
@@ -99,6 +105,7 @@ static void cancel_turn(App *app)
     app->generation++;
     app->ready = FALSE;
     app->turn_failed = FALSE;
+    g_clear_pointer(&app->turn_error, g_free);
     if (app->turn_error_box && !app->closing)
         gtk_widget_set_visible(app->turn_error_box, FALSE);
     if (app->search_cancel)
@@ -107,23 +114,31 @@ static void cancel_turn(App *app)
 
 static void update_status(App *app)
 {
-    if (!app->window || !app->playing || game_result(&app->game))
+    if (!app->window || !app->playing)
         return;
+    int result = game_result(&app->game);
+    if (result) {
+        char *message = result == 2 ? g_strdup(_("Draw! New game in 3 seconds.")) :
+            g_strdup_printf(_("%c won! New game in 3 seconds."), game_symbol(result));
+        gtk_label_set_text(GTK_LABEL(app->status), message);
+        g_free(message);
+        return;
+    }
     PlayerConfig player = current_player(app);
     char *text;
     if (app->turn_failed) {
-        text = g_strdup_printf("Vez de %s · Ollama pausado", turn_name(app));
+        text = g_strdup_printf(_("%s’s turn · Ollama paused"), turn_name(app));
     } else if (player.kind == PLAYER_OLLAMA && !app->ready) {
-        text = g_strdup_printf("Vez de %s · Ollama — %s: pensando…", turn_name(app), player.model);
+        text = g_strdup_printf(_("%s’s turn · Ollama — %s: thinking…"), turn_name(app), player.model);
     } else if (!human_turn(app) && !app->ready) {
         unsigned completed = app->job && app->job->generation == app->generation ?
             (unsigned) g_atomic_int_get(&app->job->progress) : 0;
         text = player.kind == PLAYER_MINIMAX ?
-            g_strdup_printf("Vez de %s · Minimax analisando · %u/%u", turn_name(app), completed, player.depth) :
-            g_strdup_printf("Vez de %s · Posicional analisando", turn_name(app));
+            g_strdup_printf(_("%s’s turn · Minimax analyzing · %u/%u"), turn_name(app), completed, player.depth) :
+            g_strdup_printf(_("%s’s turn · Positional analyzing"), turn_name(app));
     } else {
-        text = g_strdup_printf("Vez de %s · %s%s", turn_name(app), player_kind_name(player.kind),
-            !human_turn(app) && !app->delay_elapsed ? " · aguardando delay" : "");
+        text = g_strdup_printf(_("%s’s turn · %s%s"), turn_name(app), _(player_kind_name(player.kind)),
+            !human_turn(app) && !app->delay_elapsed ? _(" · waiting for delay") : "");
     }
     gtk_label_set_text(GTK_LABEL(app->status), text);
     g_free(text);
@@ -134,7 +149,9 @@ static void flush_reports(App *app)
     while (!g_queue_is_empty(&app->pending_reports)) {
         GError *error = NULL;
         if (!game_append_report(app->history_path, g_queue_peek_head(&app->pending_reports), &error)) {
-            char *message = g_strdup_printf("%s\n%u partida(s) aguardando gravação nesta sessão.",
+            g_free(app->save_error);
+            app->save_error = g_strdup(error->message);
+            char *message = g_strdup_printf(_("%s\nGames awaiting save in this session: %u."),
                                             error->message, app->pending_reports.length);
             gtk_label_set_text(GTK_LABEL(app->error_label), message);
             gtk_widget_set_visible(app->error_box, TRUE);
@@ -144,6 +161,7 @@ static void flush_reports(App *app)
         }
         g_free(g_queue_pop_head(&app->pending_reports));
     }
+    g_clear_pointer(&app->save_error, g_free);
     gtk_widget_set_visible(app->error_box, FALSE);
 }
 
@@ -165,7 +183,7 @@ static char *describe_player(PlayerConfig player)
 {
     if (player.kind == PLAYER_OLLAMA)
         return g_strdup_printf("Ollama (%s; %s; raciocínio ampliado %s)", player.model,
-            player.ollama_assisted ? "assistido" : "puro", player.ollama_thinking ? "solicitado" : "não solicitado");
+            player.ollama_assisted ? (GAME_CHOICES == 9 ? "assistido com defesa completa" : "assistido") : "puro", player.ollama_thinking ? "solicitado" : "não solicitado");
     return player.kind == PLAYER_MINIMAX ?
         g_strdup_printf("Minimax (profundidade %u)", player.depth) : g_strdup(player_kind_name(player.kind));
 }
@@ -197,10 +215,7 @@ static void play_cell(App *app, unsigned move)
         return;
     }
     cancel_turn(app);
-    char *message = result == 2 ? g_strdup("Empate! Nova partida em 3 segundos.") :
-        g_strdup_printf("%c venceu! Nova partida em 3 segundos.", game_symbol(result));
-    gtk_label_set_text(GTK_LABEL(app->status), message);
-    g_free(message);
+    update_status(app);
     if (result != 2) {
         GDateTime *now = g_date_time_new_now_local();
         char *first = describe_player(app->players[0]), *second = describe_player(app->players[1]);
@@ -333,7 +348,9 @@ static void turn_completed(GObject *source, GAsyncResult *result, gpointer data)
         g_string_append_printf(app->history,
             "Tentativa Ollama antes da jogada %u — modelo: %s; duração: %.3f s; erro: %s.\n\n",
             app->game.moves + 1, model, job->ollama.elapsed_us / 1000000.0, message);
-        gtk_label_set_text(GTK_LABEL(app->turn_error_label), error->message);
+        g_free(app->turn_error);
+        app->turn_error = g_strdup(error->message);
+        gtk_label_set_text(GTK_LABEL(app->turn_error_label), _(error->message));
         gtk_widget_set_visible(app->turn_error_box, TRUE);
         update_status(app);
     } else if (!app->closing && app->window && app->playing && !human_turn(app) && !game_result(&app->game)) {
@@ -416,6 +433,7 @@ static void controller_changed(GObject *object, GParamSpec *pspec, gpointer data
     (void) object;
     (void) pspec;
     App *app = data;
+    if (app->translating) return;
     update_configuration(app);
     gboolean needed = FALSE;
     for (unsigned i = 0; i < 2; i++)
@@ -457,6 +475,9 @@ static void shutdown_jobs(App *app)
     for (unsigned i = 0; i < 2; i++)
         g_clear_pointer(&app->players[i].model, g_free);
     g_clear_pointer(&app->ollama_url, g_free);
+    g_clear_pointer(&app->save_error, g_free);
+    g_clear_pointer(&app->turn_error, g_free);
+    g_clear_pointer(&app->models_error, g_free);
 }
 
 static void draw_board(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer data)
@@ -540,6 +561,10 @@ static gboolean key_pressed(GtkEventControllerKey *controller, guint keyval, gui
     (void) controller;
     (void) keycode;
     App *app = data;
+    GtkWidget *focus = app->window ? gtk_window_get_focus(app->window) : NULL;
+    if (focus && app->languages && (focus == GTK_WIDGET(app->languages) ||
+        gtk_widget_is_ancestor(focus, GTK_WIDGET(app->languages))))
+        return FALSE;
     if (!app->playing || !human_turn(app) || game_result(&app->game) ||
         (state & (GDK_CONTROL_MASK | GDK_ALT_MASK | GDK_SUPER_MASK)))
         return FALSE;
@@ -641,9 +666,11 @@ static void models_completed(GObject *source, GAsyncResult *result, gpointer dat
                 gtk_drop_down_set_selected(app->models[i], selected);
             }
         }
-        gtk_label_set_text(GTK_LABEL(app->model_status), error ? error->message :
-            app->models_valid ? "Modelos disponíveis no Ollama local." :
-            "Nenhum modelo disponível. Instale um modelo no Ollama e atualize a lista.");
+        g_free(app->models_error);
+        app->models_error = error ? g_strdup(error->message) : NULL;
+        app->models_status_key = app->models_valid ? "Models available from local Ollama." :
+            "No models available. Install a model in Ollama and refresh the list.";
+        refresh_model_status(app);
         update_configuration(app);
     }
     g_clear_error(&error);
@@ -660,7 +687,9 @@ static void refresh_models_clicked(GtkButton *button, gpointer data)
     app->models_task = g_task_new(NULL, app->models_cancel, models_completed, app);
     g_task_set_task_data(app->models_task, g_strdup(app->ollama_url), g_free);
     g_task_set_return_on_cancel(app->models_task, FALSE);
-    gtk_label_set_text(GTK_LABEL(app->model_status), "Carregando modelos…");
+    g_clear_pointer(&app->models_error, g_free);
+    app->models_status_key = "Loading models…";
+    refresh_model_status(app);
     update_configuration(app);
     g_task_run_in_thread(app->models_task, models_worker);
 }
@@ -679,32 +708,32 @@ static GtkWidget *make_configuration(App *app)
     gtk_widget_set_valign(box, GTK_ALIGN_CENTER);
     gtk_widget_set_halign(box, GTK_ALIGN_CENTER);
     set_margins(box, 24);
-    GtkWidget *title = gtk_label_new("Jogo da velha");
+    GtkWidget *title = ui_label("Tic-Tac-Toe");
     gtk_widget_add_css_class(title, "title-1");
     gtk_box_append(GTK_BOX(box), title);
-    const char *types[] = {"Humano", "Posicional", "Minimax", "Ollama", NULL};
-    const char *labels[] = {"X — começa", "O"};
+    const char *types[] = {_("Human"), _("Positional"), "Minimax", "Ollama", NULL};
+    const char *labels[] = {"X — starts", "O"};
     for (unsigned i = 0; i < 2; i++) {
-        gtk_box_append(GTK_BOX(box), gtk_label_new(labels[i]));
+        gtk_box_append(GTK_BOX(box), ui_label(labels[i]));
         app->controllers[i] = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(types));
         gtk_drop_down_set_selected(app->controllers[i], i == 0 ? PLAYER_HUMAN : PLAYER_POSITIONAL);
         gtk_box_append(GTK_BOX(box), GTK_WIDGET(app->controllers[i]));
         app->depth_rows[i] = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-        gtk_box_append(GTK_BOX(app->depth_rows[i]), gtk_label_new("Profundidade (jogadas)"));
+        gtk_box_append(GTK_BOX(app->depth_rows[i]), ui_label("Depth (moves)"));
         app->depth_scales[i] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 1, GAME_MAX_DEPTH, 1);
         gtk_scale_set_digits(GTK_SCALE(app->depth_scales[i]), 0);
         gtk_scale_set_draw_value(GTK_SCALE(app->depth_scales[i]), TRUE);
         gtk_scale_set_value_pos(GTK_SCALE(app->depth_scales[i]), GTK_POS_RIGHT);
         gtk_range_set_round_digits(GTK_RANGE(app->depth_scales[i]), 0);
-        gtk_widget_set_tooltip_text(app->depth_scales[i],
-            "Cada nível é uma jogada individual. Valores maiores podem demorar; Nova configuração cancela a análise.");
+        ui_tooltip(app->depth_scales[i],
+            "Each level is one move. Higher values may take longer; New configuration cancels the analysis.");
         gtk_range_set_value(GTK_RANGE(app->depth_scales[i]), DEFAULT_MINIMAX_DEPTH);
         gtk_widget_set_hexpand(app->depth_scales[i], TRUE);
         gtk_box_append(GTK_BOX(app->depth_rows[i]), app->depth_scales[i]);
         gtk_box_append(GTK_BOX(box), app->depth_rows[i]);
         gtk_widget_set_visible(app->depth_rows[i], FALSE);
         app->model_rows[i] = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-        gtk_box_append(GTK_BOX(app->model_rows[i]), gtk_label_new("Modelo"));
+        gtk_box_append(GTK_BOX(app->model_rows[i]), ui_label("Model"));
         const char *empty[] = {NULL};
         app->models[i] = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(empty));
         gtk_drop_down_set_enable_search(app->models[i], TRUE);
@@ -713,13 +742,15 @@ static GtkWidget *make_configuration(App *app)
         gtk_box_append(GTK_BOX(box), app->model_rows[i]);
         gtk_widget_set_visible(app->model_rows[i], FALSE);
         app->ollama_options[i] = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-        app->assist_checks[i] = GTK_CHECK_BUTTON(gtk_check_button_new_with_label("Assistência tática"));
-        gtk_widget_set_tooltip_text(GTK_WIDGET(app->assist_checks[i]),
-            "Prioriza vitórias imediatas e, quando possível, exclui jogadas que permitem vitória adversária no próximo lance. Desmarcado: Ollama puro.");
-        app->thinking_checks[i] = GTK_CHECK_BUTTON(gtk_check_button_new_with_label("Raciocínio ampliado"));
+        app->assist_checks[i] = GTK_CHECK_BUTTON(ui_check("Tactical assistance"));
+        ui_tooltip(GTK_WIDGET(app->assist_checks[i]),
+            GAME_CHOICES == 9 ?
+            "Complete defense: searches to the end and excludes forced losses when alternatives exist. The model chooses among the remaining moves. Unchecked: pure Ollama." :
+            "Prioritizes immediate wins and, when possible, excludes moves that let the opponent win on the next turn. Unchecked: pure Ollama.");
+        app->thinking_checks[i] = GTK_CHECK_BUTTON(ui_check("Extended thinking"));
         gtk_check_button_set_active(app->thinking_checks[i], TRUE);
-        gtk_widget_set_tooltip_text(GTK_WIDGET(app->thinking_checks[i]),
-            "Solicita raciocínio compatível com o modelo. Cogito usa análise e decisão em duas consultas. Pode demorar mais; desmarcado mantém o padrão do modelo.");
+        ui_tooltip(GTK_WIDGET(app->thinking_checks[i]),
+            "Requests thinking supported by the model. Cogito uses separate analysis and decision requests. This may take longer; unchecked uses the model default.");
         gtk_box_append(GTK_BOX(app->ollama_options[i]), GTK_WIDGET(app->assist_checks[i]));
         gtk_box_append(GTK_BOX(app->ollama_options[i]), GTK_WIDGET(app->thinking_checks[i]));
         gtk_box_append(GTK_BOX(box), app->ollama_options[i]);
@@ -732,11 +763,11 @@ static GtkWidget *make_configuration(App *app)
     gtk_label_set_max_width_chars(GTK_LABEL(app->model_status), 55);
     gtk_widget_set_visible(app->model_status, FALSE);
     gtk_box_append(GTK_BOX(box), app->model_status);
-    app->refresh_models = gtk_button_new_with_label("Atualizar modelos");
+    app->refresh_models = ui_button("Refresh models");
     g_signal_connect(app->refresh_models, "clicked", G_CALLBACK(refresh_models_clicked), app);
     gtk_widget_set_visible(app->refresh_models, FALSE);
     gtk_box_append(GTK_BOX(box), app->refresh_models);
-    GtkWidget *button = gtk_button_new_with_label("Iniciar partida");
+    GtkWidget *button = ui_button("Start game");
     app->begin_button = button;
     gtk_widget_add_css_class(button, "suggested-action");
     g_signal_connect(button, "clicked", G_CALLBACK(begin_clicked), app);
@@ -755,7 +786,7 @@ static GtkWidget *make_game(App *app)
     gtk_label_set_xalign(GTK_LABEL(app->status), 0);
     gtk_label_set_wrap(GTK_LABEL(app->status), TRUE);
     gtk_box_append(GTK_BOX(controls), app->status);
-    GtkWidget *configure = gtk_button_new_with_label("Nova configuração");
+    GtkWidget *configure = ui_button("New configuration");
     g_signal_connect(configure, "clicked", G_CALLBACK(configure_clicked), app);
     gtk_box_append(GTK_BOX(controls), configure);
     gtk_box_append(GTK_BOX(box), controls);
@@ -763,7 +794,7 @@ static GtkWidget *make_game(App *app)
     GtkWidget *delay_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_widget_set_margin_start(delay_box, 12);
     gtk_widget_set_margin_end(delay_box, 12);
-    gtk_box_append(GTK_BOX(delay_box), gtk_label_new("Delay (s)"));
+    gtk_box_append(GTK_BOX(delay_box), ui_label("Delay (s)"));
     app->scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 3, .1);
     gtk_scale_set_digits(GTK_SCALE(app->scale), 1);
     gtk_scale_set_draw_value(GTK_SCALE(app->scale), TRUE);
@@ -771,7 +802,7 @@ static GtkWidget *make_game(App *app)
     gtk_range_set_round_digits(GTK_RANGE(app->scale), 1);
     gtk_range_set_value(GTK_RANGE(app->scale), app->delay);
     gtk_widget_set_hexpand(app->scale, TRUE);
-    gtk_widget_set_tooltip_text(app->scale, "Espera mínima do turno automático; o cálculo ocorre durante a espera");
+    ui_tooltip(app->scale, "Minimum automatic turn delay; computation runs during the wait");
     g_signal_connect(app->scale, "value-changed", G_CALLBACK(delay_changed), app);
     gtk_box_append(GTK_BOX(delay_box), app->scale);
     gtk_box_append(GTK_BOX(box), delay_box);
@@ -783,7 +814,7 @@ static GtkWidget *make_game(App *app)
     gtk_label_set_wrap(GTK_LABEL(app->turn_error_label), TRUE);
     gtk_widget_set_hexpand(app->turn_error_label, TRUE);
     gtk_box_append(GTK_BOX(app->turn_error_box), app->turn_error_label);
-    GtkWidget *retry_turn = gtk_button_new_with_label("Tentar novamente");
+    GtkWidget *retry_turn = ui_button("Retry");
     g_signal_connect(retry_turn, "clicked", G_CALLBACK(retry_ollama), app);
     gtk_box_append(GTK_BOX(app->turn_error_box), retry_turn);
     gtk_widget_set_visible(app->turn_error_box, FALSE);
@@ -793,7 +824,7 @@ static GtkWidget *make_game(App *app)
     gtk_widget_set_hexpand(app->board, TRUE);
     gtk_widget_set_vexpand(app->board, TRUE);
     gtk_widget_set_focusable(app->board, TRUE);
-    gtk_widget_set_tooltip_text(app->board, "Use o mouse ou as teclas 1–9, na disposição do teclado numérico");
+    ui_tooltip(app->board, "Use the mouse or keys 1–9 in numeric keypad order");
     gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(app->board), draw_board, app, NULL);
     GtkGesture *click = gtk_gesture_click_new();
     gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(click), GDK_BUTTON_PRIMARY);
@@ -814,6 +845,59 @@ static void window_destroyed(GtkWidget *widget, gpointer data)
     app->window = NULL;
 }
 
+static void refresh_model_status(App *app)
+{
+    if (app->model_status)
+        gtk_label_set_text(GTK_LABEL(app->model_status), app->models_error ? _(app->models_error) :
+            _(app->models_status_key ? app->models_status_key : ""));
+}
+
+static void refresh_language(App *app)
+{
+    if (!app->window || app->closing) return;
+    app->translating = TRUE;
+    const char *types[] = {_("Human"), _("Positional"), "Minimax", "Ollama", NULL};
+    for (unsigned i = 0; i < 2; i++) {
+        guint selected = gtk_drop_down_get_selected(app->controllers[i]);
+        g_autoptr(GtkStringList) names = gtk_string_list_new(types);
+        gtk_drop_down_set_model(app->controllers[i], G_LIST_MODEL(names));
+        gtk_drop_down_set_selected(app->controllers[i], selected);
+    }
+    const char *languages[] = {_("System default"), "English", "Português", "Español", "Italiano", NULL};
+    g_autoptr(GtkStringList) names = gtk_string_list_new(languages);
+    gtk_drop_down_set_model(app->languages, G_LIST_MODEL(names));
+    gtk_drop_down_set_selected(app->languages, i18n_selection());
+    ui_retranslate_tree(GTK_WIDGET(app->window));
+    refresh_model_status(app);
+    if (app->turn_error)
+        gtk_label_set_text(GTK_LABEL(app->turn_error_label), _(app->turn_error));
+    if (app->save_error) {
+        g_autofree char *message = g_strdup_printf(_("%s\nGames awaiting save in this session: %u."),
+            _(app->save_error), app->pending_reports.length);
+        gtk_label_set_text(GTK_LABEL(app->error_label), message);
+    }
+    update_status(app);
+    app->translating = FALSE;
+    update_configuration(app);
+}
+
+static void language_changed(GObject *object, GParamSpec *pspec, gpointer data)
+{
+    (void) object;
+    (void) pspec;
+    App *app = data;
+    if (app->translating || app->closing) return;
+    guint selected = gtk_drop_down_get_selected(app->languages);
+    if (selected >= I18N_LANGUAGE_COUNT) return;
+    i18n_set_language((I18nLanguage) selected);
+    refresh_language(app);
+    GError *error = NULL;
+    if (!i18n_save(app->language_path, &error)) {
+        g_printerr(_("Could not save language preference: %s\n"), error->message);
+        g_clear_error(&error);
+    }
+}
+
 static void activate(GtkApplication *application, gpointer data)
 {
     App *app = data;
@@ -822,11 +906,21 @@ static void activate(GtkApplication *application, gpointer data)
         return;
     }
     app->window = GTK_WINDOW(adw_application_window_new(application));
-    gtk_window_set_title(app->window, "Jogo da velha");
+    ui_title(app->window, "Tic-Tac-Toe");
     gtk_window_set_default_size(app->window, 620, 740);
     g_signal_connect(app->window, "destroy", G_CALLBACK(window_destroyed), app);
     GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_box_append(GTK_BOX(root), adw_header_bar_new());
+    GtkWidget *header = adw_header_bar_new();
+    GtkWidget *language_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_append(GTK_BOX(language_box), ui_label("Language"));
+    const char *language_names[] = {_("System default"), "English", "Português", "Español", "Italiano", NULL};
+    app->languages = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(language_names));
+    gtk_drop_down_set_selected(app->languages, i18n_selection());
+    ui_tooltip(GTK_WIDGET(app->languages), "Choose the interface language");
+    g_signal_connect(app->languages, "notify::selected", G_CALLBACK(language_changed), app);
+    gtk_box_append(GTK_BOX(language_box), GTK_WIDGET(app->languages));
+    adw_header_bar_pack_end(ADW_HEADER_BAR(header), language_box);
+    gtk_box_append(GTK_BOX(root), header);
 
     app->error_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     set_margins(app->error_box, 12);
@@ -835,7 +929,7 @@ static void activate(GtkApplication *application, gpointer data)
     gtk_label_set_wrap(GTK_LABEL(app->error_label), TRUE);
     gtk_widget_set_hexpand(app->error_label, TRUE);
     gtk_box_append(GTK_BOX(app->error_box), app->error_label);
-    GtkWidget *retry = gtk_button_new_with_label("Tentar gravar");
+    GtkWidget *retry = ui_button("Retry saving");
     g_signal_connect(retry, "clicked", G_CALLBACK(retry_save), app);
     gtk_box_append(GTK_BOX(app->error_box), retry);
     gtk_widget_set_visible(app->error_box, FALSE);
@@ -861,6 +955,12 @@ static void activate(GtkApplication *application, gpointer data)
 int main(int argc, char **argv)
 {
     App app = {0};
+    app.language_path = g_build_filename(g_get_user_config_dir(), "ai-games", "jogo-da-velha.ini", NULL);
+    GError *language_error = NULL;
+    if (!i18n_load(app.language_path, &language_error)) {
+        g_printerr(_("Could not load language preference: %s\n"), language_error->message);
+        g_clear_error(&language_error);
+    }
     app.delay = .5;
     app.random = g_rand_new();
     app.history = g_string_new(NULL);
@@ -877,5 +977,6 @@ int main(int argc, char **argv)
     g_string_free(app.history, TRUE);
     g_rand_free(app.random);
     g_free(app.history_path);
+    g_free(app.language_path);
     return result;
 }

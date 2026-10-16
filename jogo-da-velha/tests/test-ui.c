@@ -430,6 +430,92 @@ static void test_ollama_controls(void)
     teardown(&server, NULL);
 }
 
+static void test_live_languages(void)
+{
+    i18n_set_language(I18N_ENGLISH);
+    App app = {0};
+    app.delay = 3;
+    app.random = g_rand_new_with_seed(31);
+    app.history = g_string_new(NULL);
+    GError *error = NULL;
+    g_autofree char *directory = g_dir_make_tmp("ai-games-language-ui-XXXXXX", &error);
+    g_assert_no_error(error);
+    app.history_path = g_build_filename(directory, "history.md", NULL);
+    app.language_path = g_build_filename(directory, "settings.ini", NULL);
+    app.application = GTK_APPLICATION(adw_application_new("io.github.aigames.Language.Test", G_APPLICATION_NON_UNIQUE));
+    g_assert_true(g_application_register(G_APPLICATION(app.application), NULL, &error));
+    g_assert_no_error(error);
+    activate(app.application, &app);
+    drain_events();
+    g_assert_cmpstr(gtk_button_get_label(GTK_BUTTON(app.begin_button)), ==, "Start game");
+    select_players(&app, PLAYER_HUMAN, PLAYER_HUMAN);
+    play_cell(&app, 0);
+    Game snapshot = app.game;
+    gtk_widget_grab_focus(GTK_WIDGET(app.languages));
+    g_assert_false(key_pressed(NULL, GDK_KEY_1, 0, 0, &app));
+    g_assert_cmpmem(&app.game, sizeof app.game, &snapshot, sizeof snapshot);
+    gtk_widget_grab_focus(app.board);
+    g_autofree char *history = g_strdup(app.history->str);
+    const I18nLanguage selections[] = {I18N_PORTUGUESE, I18N_SPANISH, I18N_ITALIAN, I18N_ENGLISH};
+    const char *start_labels[] = {"Iniciar partida", "Iniciar partida", "Inizia partita", "Start game"};
+    const char *human_labels[] = {"Humano", "Humano", "Umano", "Human"};
+    for (unsigned i = 0; i < G_N_ELEMENTS(selections); i++) {
+        gtk_drop_down_set_selected(app.languages, selections[i]);
+        g_assert_cmpint(i18n_language(), ==, selections[i]);
+        g_assert_cmpstr(gtk_button_get_label(GTK_BUTTON(app.begin_button)), ==, start_labels[i]);
+        GtkStringList *types = GTK_STRING_LIST(gtk_drop_down_get_model(app.controllers[0]));
+        g_assert_cmpstr(gtk_string_list_get_string(types, PLAYER_HUMAN), ==, human_labels[i]);
+        g_assert_cmpmem(&app.game, sizeof app.game, &snapshot, sizeof snapshot);
+        g_assert_cmpstr(app.history->str, ==, history);
+        g_assert_cmpint(app.players[0].kind, ==, PLAYER_HUMAN);
+        g_assert_cmpuint(gtk_drop_down_get_selected(app.controllers[0]), ==, PLAYER_HUMAN);
+        g_autoptr(GKeyFile) file = g_key_file_new();
+        g_assert_true(g_key_file_load_from_file(file, app.language_path, G_KEY_FILE_NONE, &error));
+        g_assert_no_error(error);
+        g_autofree char *saved = g_key_file_get_string(file, "Interface", "Language", &error);
+        g_assert_no_error(error);
+        g_assert_cmpstr(saved, ==, i18n_language_code(selections[i]));
+    }
+    /* A running computation and its minimum delay survive language changes. */
+    select_players(&app, PLAYER_HUMAN, PLAYER_MINIMAX);
+    play_cell(&app, 0);
+    GTask *task = app.task;
+    guint64 generation = app.generation;
+    guint timer = app.source;
+    gtk_drop_down_set_selected(app.languages, I18N_ITALIAN);
+    g_assert_true(app.task == task);
+    g_assert_cmpuint(app.generation, ==, generation);
+    g_assert_cmpuint(app.source, ==, timer);
+    g_assert_cmpuint(app.game.moves, ==, 1);
+    g_assert_cmpint(app.players[1].kind, ==, PLAYER_MINIMAX);
+    wait_job(&app);
+    g_assert_true(app.ready);
+    g_assert_cmpuint(app.game.moves, ==, 1);
+    select_players(&app, PLAYER_HUMAN, PLAYER_HUMAN);
+    const unsigned win_c4[] = {0,6,1,6,2,5,3};
+    const unsigned win_ttt[] = {0,3,1,4,2};
+    const unsigned *moves = GAME_CHOICES == 7 ? win_c4 : win_ttt;
+    for (unsigned i = 0; i < (GAME_CHOICES == 7 ? 7u : 5u); i++) play_cell(&app, moves[i]);
+    g_assert_cmpint(game_result(&app.game), ==, 1);
+    timer = app.source;
+    gtk_drop_down_set_selected(app.languages, I18N_ENGLISH);
+    g_assert_nonnull(strstr(gtk_label_get_text(GTK_LABEL(app.status)), "won!"));
+    gtk_drop_down_set_selected(app.languages, I18N_PORTUGUESE);
+    g_assert_nonnull(strstr(gtk_label_get_text(GTK_LABEL(app.status)), "venceu!"));
+    g_assert_cmpuint(app.source, ==, timer);
+    gtk_window_destroy(app.window);
+    shutdown_jobs(&app);
+    g_object_unref(app.application);
+    g_string_free(app.history, TRUE);
+    g_rand_free(app.random);
+    g_remove(app.history_path);
+    g_remove(app.language_path);
+    g_free(app.history_path);
+    g_free(app.language_path);
+    g_rmdir(directory);
+    i18n_set_language(I18N_ENGLISH);
+}
+
 int main(int argc, char **argv)
 {
     g_test_init(&argc, &argv, NULL);
@@ -438,6 +524,9 @@ int main(int argc, char **argv)
     g_assert_no_error(error);
     g_autofree char *log_path = g_build_filename(directory, "ollama.log", NULL);
     g_setenv("OLLAMA_LOG_FILE", log_path, TRUE);
+    g_autofree char *error_log_path = g_build_filename(directory, "ollama-error.log", NULL);
+    g_setenv("OLLAMA_ERROR_LOG_FILE", error_log_path, TRUE);
+    g_test_add_func("/ui/languages-live-persistence", test_live_languages);
     g_test_add_func("/ui/ollama-controllers-retry-cancel", test_ollama_controls);
     g_test_add_func("/ui/worker-without-display", test_worker);
     g_test_add_func("/ui/stale-completion-without-display", test_stale_completion);
@@ -445,6 +534,7 @@ int main(int argc, char **argv)
     g_test_add_func("/ui/controllers-timers-history", test_controls);
     int result = g_test_run();
     g_remove(log_path);
+    g_remove(error_log_path);
     g_rmdir(directory);
     return result;
 }

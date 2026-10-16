@@ -150,7 +150,26 @@ static void test_invalid(Fixture *f, gconstpointer data)
     f->body = "{\"error\":\"model missing\"}";
     run(&call);
     g_assert_error(call.error, G_IO_ERROR, G_IO_ERROR_FAILED);
+    g_assert_nonnull(strstr(call.error->message, "model missing"));
     g_clear_error(&call.error);
+    g_autofree char *trace = NULL;
+    GError *error = NULL;
+    g_assert_true(g_file_get_contents(g_getenv("OLLAMA_ERROR_LOG_FILE"), &trace, NULL, &error));
+    g_assert_no_error(error);
+    g_auto(GStrv) lines = g_strsplit(trace, "\n", -1);
+    gboolean found = FALSE;
+    for (unsigned i = 0; lines[i] && *lines[i]; i++) {
+        g_autoptr(JsonParser) parser = json_parser_new();
+        g_assert_true(json_parser_load_from_data(parser, lines[i], -1, &error));
+        g_assert_no_error(error);
+        JsonObject *entry = json_node_get_object(json_parser_get_root(parser));
+        if (!g_str_equal(json_object_get_string_member(entry, "event"), "http_error")) continue;
+        found = TRUE;
+        g_assert_cmpint(json_object_get_int_member(entry, "status"), ==, 404);
+        g_assert_cmpstr(json_object_get_string_member(entry, "body"), ==, f->body);
+        g_assert_cmpstr(json_object_get_string_member(entry, "model"), ==, call.model);
+    }
+    g_assert_true(found);
 }
 
 static gboolean cancel_call(gpointer data)
@@ -220,6 +239,22 @@ static void test_cancel_without_service(void)
     }
     g_assert_cmpuint(requests, >=, 2);
     g_assert_cmpuint(cancellations, >=, 2);
+    g_autofree char *error_trace = NULL;
+    g_assert_true(g_file_get_contents(g_getenv("OLLAMA_ERROR_LOG_FILE"), &error_trace, NULL, &error));
+    g_assert_no_error(error);
+    g_assert_nonnull(strstr(error_trace, "model:tag"));
+    g_auto(GStrv) failures = g_strsplit(error_trace, "\n", -1);
+    for (unsigned i = 0; failures[i] && *failures[i]; i++) {
+        g_autoptr(JsonParser) parser = json_parser_new();
+        g_assert_true(json_parser_load_from_data(parser, failures[i], -1, &error));
+        g_assert_no_error(error);
+        JsonObject *entry = json_node_get_object(json_parser_get_root(parser));
+        const char *event = json_object_get_string_member(entry, "event");
+        g_assert_cmpstr(event, !=, "request");
+        g_assert_cmpstr(event, !=, "response");
+        g_assert_nonnull(json_object_get_string_member(entry, "operation_id"));
+        g_assert_nonnull(json_object_get_string_member(entry, "error"));
+    }
 }
 
 static void test_protocol_without_network(void)
@@ -450,6 +485,70 @@ static void test_assisted_response(Fixture *f, gconstpointer data)
     g_assert_nonnull(strstr(history->str, "Alternativas permitidas"));
 }
 
+/* Explore every legal opponent reply and every choice exposed to the model,
+ * starting as either side. No solver score is used as the test oracle: the
+ * actual terminal result must never be a loss for the assisted player. */
+static void walk_assisted(const Game *game, int player, gboolean *visited, unsigned *states)
+{
+    unsigned key = 0;
+    for (unsigned row = 0; row < 3; row++)
+        for (unsigned col = 0; col < 3; col++)
+            key = key * 3 + (unsigned) (game->cells[row][col] + 1);
+    key = key * 2 + (game->turn == 1);
+    if (visited[key]) return;
+    visited[key] = TRUE;
+    (*states)++;
+    int result = game_result(game);
+    if (result) { g_assert_cmpint(result, !=, -player); return; }
+    unsigned allowed = (1u << 9) - 1;
+    if (game->turn == player) {
+        OllamaAnalysis analysis;
+        ollama_analyze(game, TRUE, &analysis);
+        g_assert_cmpuint(analysis.non_losing, !=, 0);
+        g_assert_cmpuint(analysis.allowed, !=, 0);
+        g_assert_cmpuint(analysis.allowed & ~analysis.non_losing, ==, 0);
+        allowed = analysis.allowed;
+    }
+    for (unsigned i = 0; i < 9; i++) {
+        Game next = *game;
+        if ((allowed & (1u << i)) && game_play(&next, i))
+            walk_assisted(&next, player, visited, states);
+    }
+}
+
+static void test_complete_ttt_defense(void)
+{
+    for (int player = -1; player <= 1; player += 2) {
+        Game game; game_init(&game);
+        g_autofree gboolean *visited = g_new0(gboolean, 39366);
+        unsigned states = 0;
+        walk_assisted(&game, player, visited, &states);
+        g_assert_cmpuint(states, >, 100);
+        g_test_message("Defesa como %c: %u estados, nenhuma derrota", game_symbol(player), states);
+    }
+    /* Both recorded losses started with a side response to an opening corner.
+     * The complete filter requires center before the forced chain begins. */
+    const unsigned corners[] = {0,2,6,8};
+    for (unsigned k = 0; k < G_N_ELEMENTS(corners); k++) {
+        for (int color = -1; color <= 1; color += 2) {
+            Game game; game_init(&game); game.turn = color;
+            g_assert_true(game_play(&game, corners[k]));
+            OllamaAnalysis assisted, pure;
+            ollama_analyze(&game, TRUE, &assisted);
+            ollama_analyze(&game, FALSE, &pure);
+            g_assert_cmpuint(assisted.allowed, ==, 1u << 4);
+            g_assert_cmpuint(pure.allowed, ==, ((1u << 9) - 1) & ~(1u << corners[k]));
+        }
+    }
+    Game fork; game_init(&fork);
+    g_assert_true(game_play(&fork, 0));
+    g_assert_true(game_play(&fork, 4));
+    g_assert_true(game_play(&fork, 8));
+    OllamaAnalysis defense;
+    ollama_analyze(&fork, TRUE, &defense);
+    g_assert_cmpuint(defense.allowed, ==, (1u << 1) | (1u << 3) | (1u << 5) | (1u << 7));
+}
+
 int main(int argc, char **argv)
 {
     g_test_init(&argc, &argv, NULL);
@@ -458,6 +557,9 @@ int main(int argc, char **argv)
     g_assert_no_error(error);
     g_autofree char *log_path = g_build_filename(directory, "ollama.log", NULL);
     g_setenv("OLLAMA_LOG_FILE", log_path, TRUE);
+    g_autofree char *error_log_path = g_build_filename(directory, "ollama-error.log", NULL);
+    g_setenv("OLLAMA_ERROR_LOG_FILE", error_log_path, TRUE);
+    g_test_add_func("/ollama/complete-defense-all-opponent-replies", test_complete_ttt_defense);
     g_test_add_func("/ollama/tactical-filter-without-network", test_tactical_filter);
     g_test_add_func("/ollama/protocol-without-network", test_protocol_without_network);
     g_test_add_func("/ollama/cancel-without-service", test_cancel_without_service);
@@ -469,6 +571,7 @@ int main(int argc, char **argv)
     g_test_add("/ollama/deadline-cancel", Fixture, NULL, setup, test_deadline, teardown);
     int result = g_test_run();
     g_remove(log_path);
+    g_remove(error_log_path);
     g_rmdir(directory);
     return result;
 }

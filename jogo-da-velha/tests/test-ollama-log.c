@@ -56,6 +56,12 @@ static void test_payloads(void)
             g_assert_cmpmem(decoded, size, binary, sizeof binary);
         }
     }
+    g_autofree char *error_contents = NULL;
+    g_assert_true(g_file_get_contents(g_getenv("OLLAMA_ERROR_LOG_FILE"), &error_contents, NULL, &error));
+    g_assert_no_error(error);
+    g_auto(GStrv) error_lines = g_strsplit(error_contents, "\n", -1);
+    g_assert_cmpuint(g_strv_length(error_lines), ==, 2);
+    g_assert_cmpint(g_remove(g_getenv("OLLAMA_ERROR_LOG_FILE")), ==, 0);
     g_assert_cmpint(g_remove(log_path), ==, 0);
 }
 
@@ -90,6 +96,12 @@ static void test_concurrent_append(void)
         g_assert_true(g_hash_table_add(ids, g_strdup(json_object_get_string_member(entry, "id"))));
     }
     g_assert_cmpuint(g_hash_table_size(ids), ==, 32);
+    g_autofree char *error_contents = NULL;
+    g_assert_true(g_file_get_contents(g_getenv("OLLAMA_ERROR_LOG_FILE"), &error_contents, NULL, &error));
+    g_assert_no_error(error);
+    g_auto(GStrv) error_lines = g_strsplit(error_contents, "\n", -1);
+    g_assert_cmpuint(g_strv_length(error_lines), ==, 33);
+    g_assert_cmpint(g_remove(g_getenv("OLLAMA_ERROR_LOG_FILE")), ==, 0);
     g_assert_cmpint(g_remove(log_path), ==, 0);
 }
 
@@ -134,6 +146,62 @@ static void test_reasoning_policy(void)
     g_assert_cmpint(json_array_get_int_element(allowed, 1), ==, ollama_move_number(2));
 }
 
+static void test_operation_error_log(void)
+{
+    const char *error_path = g_getenv("OLLAMA_ERROR_LOG_FILE");
+    g_remove(log_path);
+    g_remove(error_path);
+    Game game; game_init(&game);
+    OllamaResult result;
+    OllamaOptions options = {.assisted = TRUE};
+    GError *error = NULL;
+    /* Expired total deadline, before any HTTP request; no server required. */
+    g_assert_false(ollama_choose_with_options(&game, "model:tag", NULL, 0, NULL, &options, &result, &error));
+    g_assert_error(error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT);
+    g_clear_error(&error);
+    /* Invalid configuration is captured even with a NULL GError destination. */
+    g_assert_false(ollama_choose_with_options(&game, "", NULL, 100, NULL, NULL, &result, NULL));
+    /* Simulate an HTTP-success/invalid-move error using the actual parser and
+     * the same operation error boundary, then verify deduplication. */
+    OllamaTrace trace = {.id = "validation-op", .operation = "choose_move", .model = "bad-move-model",
+        .path = "/api/generate", .method = "POST", .status = 200};
+    g_strlcpy(trace.request_id, "request-id", sizeof trace.request_id);
+    g_private_set(&operation_trace, &trace);
+    int chosen;
+    g_assert_false(ollama_parse_move(&game, "{\"done\":true,\"response\":\"{\\\"move\\\":0}\"}", &chosen, &error));
+    log_operation_failure(NULL, g_get_monotonic_time(), &game, &result, error);
+    log_operation_failure(NULL, g_get_monotonic_time(), &game, &result, error);
+    g_private_set(&operation_trace, NULL);
+    g_clear_error(&error);
+    g_autofree char *contents = NULL;
+    g_assert_true(g_file_get_contents(error_path, &contents, NULL, &error));
+    g_assert_no_error(error);
+    g_auto(GStrv) lines = g_strsplit(contents, "\n", -1);
+    g_assert_cmpuint(g_strv_length(lines), ==, 4);
+    for (unsigned i = 0; i < 3; i++) {
+        g_autoptr(JsonParser) parser = json_parser_new();
+        g_assert_true(json_parser_load_from_data(parser, lines[i], -1, &error));
+        g_assert_no_error(error);
+        JsonObject *entry = json_node_get_object(json_parser_get_root(parser));
+        g_assert_cmpstr(json_object_get_string_member(entry, "operation"), ==, "choose_move");
+        g_assert_nonnull(json_object_get_string_member(entry, "operation_id"));
+        g_assert_nonnull(json_object_get_string_member(entry, "error"));
+        g_assert_cmpstr(json_object_get_string_member(entry, "event"), ==, i == 0 ? "timeout" : "error");
+        g_autoptr(JsonObject) context = parse_object(json_object_get_string_member(entry, "body"), NULL);
+        g_assert_cmpuint(json_array_get_length(json_object_get_array_member(context, "board")), ==, GAME_ROWS);
+        if (i == 0) {
+            g_assert_cmpstr(json_object_get_string_member(entry, "model"), ==, "model:tag");
+            g_assert_cmpint(json_object_get_int_member(context, "error_code"), ==, G_IO_ERROR_TIMED_OUT);
+        } else if (i == 2) {
+            g_assert_cmpstr(json_object_get_string_member(entry, "operation_id"), ==, "validation-op");
+            g_assert_cmpstr(json_object_get_string_member(entry, "request_id"), ==, "request-id");
+            g_assert_cmpint(json_object_get_int_member(entry, "status"), ==, 200);
+        }
+    }
+    g_remove(log_path);
+    g_remove(error_path);
+}
+
 int main(int argc, char **argv)
 {
     g_test_init(&argc, &argv, NULL);
@@ -142,11 +210,15 @@ int main(int argc, char **argv)
     g_assert_no_error(error);
     log_path = g_build_filename(directory, "ollama.log", NULL);
     g_setenv("OLLAMA_LOG_FILE", log_path, TRUE);
+    g_autofree char *error_log_path = g_build_filename(directory, "ollama-error.log", NULL);
+    g_setenv("OLLAMA_ERROR_LOG_FILE", error_log_path, TRUE);
     g_test_add_func("/ollama-policy/reasoning-deadline-schema", test_reasoning_policy);
     g_test_add_func("/ollama-log/full-payload-thinking-errors", test_payloads);
     g_test_add_func("/ollama-log/concurrent-append", test_concurrent_append);
+    g_test_add_func("/ollama-log/operation-errors-timeout-validation", test_operation_error_log);
     int result = g_test_run();
     g_remove(log_path);
+    g_remove(error_log_path);
     g_rmdir(directory);
     g_free(log_path);
     g_free(directory);

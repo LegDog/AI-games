@@ -1,94 +1,117 @@
 # AI-games
 
-Dois aplicativos GNOME independentes em C, GTK 4 e libadwaita, sob a licença
-GPL-3.0-or-later:
+This repository is a place to study, compare, and develop AI skills through
+playing games. We may add more games and algorithms soon. Contributions are
+welcome—feel free to contribute new games, algorithms, experiments, or improvements.
+English is the primary language for project documentation and contributions.
 
-- [Jogo da velha](jogo-da-velha/README.md): matriz 3×3, mouse e teclado numérico.
-- [Lig-4](connect-4/README.md): tabuleiro 7×6 com gravidade, mouse e teclas 1–7.
+The repository currently contains two independent GNOME applications written
+in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 
-Cada diretório contém seu próprio motor, interface, testes, Makefile, projeto
-Meson, recursos de instalação e cópia da licença. Não é necessário compilar
-um aplicativo para usar o outro.
+- [Tic-Tac-Toe](jogo-da-velha/README.md): a 3×3 board, mouse and numeric keypad controls.
+- [Connect Four](connect-4/README.md): a 7×6 board with gravity, mouse and 1–7 key controls.
 
-## Dependências e compilação
+Each directory contains its own engine, interface, tests, Makefile, Meson
+project, installation resources, and license copy. Either application can be
+built and used independently.
 
-No Fedora:
+## Dependencies and build
+
+On Fedora:
 
 ```sh
 sudo dnf install gcc meson ninja-build pkgconf-pkg-config glib2-devel gtk4-devel libadwaita-devel libsoup3-devel json-glib-devel
 make
 ```
 
-São necessários C11, GLib >= 2.66, GTK >= 4.10 e libadwaita >= 1.4.
-As bibliotecas e os arquivos de desenvolvimento são os instalados no sistema.
+Requires C11, GLib >= 2.66, GTK >= 4.10, and libadwaita >= 1.4.
+The build uses the libraries and development files installed on your system.
 
-## Comandos da raiz
+## Commands from the repository root
 
 ```sh
-make                              # compilar os dois aplicativos
-make run                          # abrir o jogo da velha
-make GAME=connect-4 run            # abrir o Lig-4
-make GAME=connect-4                # compilar somente o Lig-4
-make test                         # testes dos dois motores, sem display
-make GAME=connect-4 test           # testes de um motor
-make test-ui                      # incluir testes gráficos; requer display
-make install                      # instalar ambos em ~/.local
-make install PREFIX=/outro/local  # escolher outro prefixo
-make clean                        # limpar artefatos, preservando históricos
+make                              # build both applications
+make run                          # launch Tic-Tac-Toe
+make GAME=connect-4 run            # launch Connect Four
+make GAME=connect-4                # build only Connect Four
+make test                         # test both engines without a display
+make GAME=connect-4 test           # test one engine
+make test-ollama                   # test both Ollama clients and logs
+make test-ui                      # include GUI tests; requires a display
+make install                      # install both applications under ~/.local
+make install PREFIX=/other/path   # choose another installation prefix
+make clean                        # remove build artifacts, preserving histories
 ```
 
-Os alvos `build`, `configure`, `test`, `test-ui`, `install` e `clean` atuam nos
-dois projetos, ou somente naquele indicado por `GAME`. `run` escolhe o jogo
-da velha quando `GAME` não é informado. As opções `PREFIX`, `MESON_ARGS` e
-`DESTDIR` são repassadas aos Makefiles individuais. Caminhos relativos de
-build são relativos à pasta de cada aplicativo.
+The `build`, `configure`, `test`, `test-ui`, `install`, and `clean` targets
+operate on both projects, or only the one selected by `GAME`. `run` defaults
+to Tic-Tac-Toe. `PREFIX`, `MESON_ARGS`, and `DESTDIR` are forwarded to each
+application's Makefile. Relative build paths are relative to each application's
+directory.
 
-Também é possível usar `make -C connect-4` ou entrar no diretório do jogo e
-executar `make`, `make run`, `make test`, `make test-ui`, `make install` e
-`make clean`. Para uma compilação otimizada, use
-`make MESON_ARGS='-Dbuildtype=release'`.
+You can also use `make -C connect-4`, or enter either game directory and run
+`make`, `make run`, `make test`, `make test-ui`, `make install`, or `make clean`.
+For an optimized build, use `make MESON_ARGS='-Dbuildtype=release'`.
 
-## Partidas e históricos
+## Games and histories
 
-Cada lado tem um seletor **Humano / Posicional / Minimax / Ollama**, permitindo todas
-as combinações. Cada jogador Minimax tem profundidade própria: 1–9 (padrão 9)
-no jogo da velha e 1–12 (padrão 6) no Lig-4. O padrão é primeiro lado humano
-e segundo posicional. A busca roda em segundo plano e conclui a profundidade
-escolhida; “Nova configuração” cancela a análise.
+Each side has a **Human / Positional / Minimax / Ollama** selector, allowing
+all combinations. Each Minimax player has its own search depth: 1–9 (default 9)
+in Tic-Tac-Toe and 1–12 (default 6) in Connect Four. The default is a human
+first player and a positional second player. Searches run in the background
+and complete the selected depth; **New configuration** cancels analysis.
 
-O delay de 0–3 segundos, em passos de 0,1 segundo, é a espera mínima do turno:
-análise e temporizador começam juntos. O reinício três segundos após cada
-resultado conserva os controladores, suas profundidades e o delay. A abertura
-trata todas as jogadas iniciais como equivalentes e usa somente o aleatório.
+The 0–3 second delay, adjustable in 0.1-second steps, is the minimum turn time:
+analysis and the timer start together. Games restart three seconds after a
+result, preserving controllers, depths, and delay. Positional and Minimax
+players treat all opening moves as equivalent and choose randomly.
 
-Antes de cada jogada humana ou automática, os componentes da avaliação são
-registrados em memória. Partidas com vencedor são acrescentadas ao histórico,
-com data e hora; empates e partidas abandonadas não são gravados.
+Before every human or automated move, evaluation components are recorded in
+memory. Games with a winner are appended to the history with a timestamp;
+draws and abandoned games are not saved.
 
-O jogo da velha usa `histórico.md`; o Lig-4 usa `histórico-connect-4.md`.
-Os arquivos são relativos ao diretório de execução. `make run` e
-`make GAME=connect-4 run` executam dentro da pasta do respectivo aplicativo.
-Iniciados diretamente ou pelo lançador GNOME, usam o diretório de trabalho
-fornecido pelo terminal ou desktop.
+Tic-Tac-Toe uses `histórico.md`; Connect Four uses `histórico-connect-4.md`.
+Paths are relative to the working directory. `make run` and
+`make GAME=connect-4 run` launch inside the respective application directory.
+Direct launches and GNOME launchers use the working directory supplied by
+the terminal or desktop.
 
-Os diretórios de build antigos na raiz não são reutilizados após a separação.
-Históricos existentes foram preservados em seu local original. Novos builds
-ficam em cada projeto; builds e históricos locais são ignorados pelo Git.
+Old build directories at the repository root are not reused after the project
+split. Existing histories remain in their original locations. New builds live
+inside each project; local builds and histories are ignored by Git.
 
+## Ollama players
 
-Os dois jogos também oferecem **Ollama** como jogador, com modelo independente
-por participante e atualização da lista do serviço local (`127.0.0.1:11434`).
-O build gráfico requer libsoup 3 e JSON-GLib, além das dependências anteriores.
-Use `make test-ollama` para testar o cliente; `make test` mantém os testes dos
-motores sem dependências gráficas ou de rede. Consulte o README de cada jogo
-para configuração, tratamento de erros e detalhes do histórico.
+Both games support **Ollama** players, with an independent model selection for
+each side and a refreshable model list from the local service
+(`127.0.0.1:11434`). Application builds require libsoup 3 and JSON-GLib in
+addition to GTK and libadwaita. `make test-ollama` tests the clients;
+`make test` keeps engine tests independent of graphical and networking
+libraries. See each game's README for configuration, error handling, and
+history details.
 
-Toda a comunicação com Ollama é acrescentada a `ollama.log` no diretório de
-execução, incluindo prompts, respostas completas e `thinking` quando retornado
-pelo modelo. O arquivo usa JSON Lines; `OLLAMA_LOG_FILE` permite outro caminho.
+All Ollama communication is appended to `ollama.log` in the working directory,
+including prompts, complete responses, and `thinking` when returned by the
+model. The format is JSON Lines; `OLLAMA_LOG_FILE` overrides the path.
 
-O jogador Ollama oferece **Assistência tática** opcional (desmarcada por padrão)
-e **Raciocínio ampliado** (marcado por padrão), configurados por participante.
-O histórico distingue os modos puro e assistido. O prompt identifica peças,
-coordenadas e locais de queda; o Cogito v1 pode analisar antes de responder em
-JSON. Consulte os READMEs dos jogos para os controles e limites dessas opções.
+Each Ollama player offers optional **Tactical assistance** (off by default)
+and **Extended reasoning** (on by default). Histories distinguish pure and
+assisted modes. Prompts identify pieces, coordinates, and landing cells;
+Cogito v1 can analyze before producing its JSON decision. The game READMEs
+explain these controls and their limits.
+
+Communication failures, validation errors, and timeouts are also appended to
+`ollama-error.log`; `OLLAMA_ERROR_LOG_FILE` overrides its path. Both logs share
+operation and request identifiers for diagnosis. In Tic-Tac-Toe, tactical
+assistance searches to the end of the game and excludes forced losses when an
+alternative exists, while the model chooses among the permitted moves. The
+history explicitly identifies this mode; pure Ollama play remains available.
+
+## Interface languages
+
+Both apps offer a header selector for **English**, **Português**, **Español**
+and **Italiano**, plus **System default**. Automatic selection follows the system's
+preferred supported language, with **English** as the fallback. Changes apply
+immediately and are saved independently for each app under
+`~/.config/ai-games/` (or `$XDG_CONFIG_HOME/ai-games/`). Translations are embedded
+in the binaries; the normal build and `make test` include internationalization.

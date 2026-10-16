@@ -10,6 +10,7 @@ compile_commands.json
 *.so
 *.so.*
 test-game
+test-i18n
 test-minimax
 test-ollama
 test-ollama-log
@@ -34,3 +35,4 @@ histórico*.md
 
 # Full Ollama request/response traces
 ollama.log
+ollama-error.log

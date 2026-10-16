@@ -7,14 +7,14 @@ enum { OLLAMA_LIST_TIMEOUT_MS = 100000, OLLAMA_MOVE_TIMEOUT_MS = 1800000 };
 typedef struct { gboolean assisted, thinking; } OllamaOptions;
 typedef enum { OLLAMA_REASONING_DEFAULT, OLLAMA_REASONING_NATIVE, OLLAMA_REASONING_COGITO } OllamaReasoning;
 typedef struct {
-    unsigned legal, winning, safe, allowed;
+    unsigned legal, winning, safe, allowed, non_losing;
     int landing_rows[GAME_CHOICES];
     unsigned opponent_wins[GAME_CHOICES];
 } OllamaAnalysis;
 typedef struct {
     int move;
     gint64 elapsed_us;
-    gboolean assisted, thinking_requested;
+    gboolean assisted, thinking_requested, complete_defense;
     unsigned allowed;
     OllamaReasoning reasoning;
 } OllamaResult;
@@ -26,8 +26,8 @@ gboolean ollama_choose(const Game *game, const char *model, const char *url,
                        guint timeout_ms, GCancellable *cancel, OllamaResult *result, GError **error);
 gboolean ollama_choose_with_options(const Game *game, const char *model, const char *url,
     guint timeout_ms, GCancellable *cancel, const OllamaOptions *options, OllamaResult *result, GError **error);
-/* Tactical filtering uses engine rules only: win now, otherwise avoid allowing
- * a win on the next reply when possible. No positional/minimax scores. */
+/* Assisted tic-tac-toe excludes forced losses through exhaustive Boolean
+ * search; Connect Four filters immediate wins/losses. Pure mode stays legal-only. */
 void ollama_analyze(const Game *game, gboolean assisted, OllamaAnalysis *analysis);
 char *ollama_build_prompt(const Game *game, const OllamaAnalysis *analysis, gboolean assisted);
 /* Offline protocol validation, shared with the transport operations. */

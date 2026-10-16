@@ -1,7 +1,13 @@
 [Desktop Entry]
 Type=Application
-Name=Jogo da velha
-Comment=Jogue com pessoas ou acompanhe jogadores automáticos
+Name=Tic-Tac-Toe
+Name[pt]=Jogo da velha
+Name[es]=Tres en raya
+Name[it]=Tris
+Comment=Play with people or watch automated players
+Comment[pt]=Jogue com pessoas ou acompanhe jogadores automáticos
+Comment[es]=Juega con personas o mira a jugadores automáticos
+Comment[it]=Gioca con altre persone o guarda i giocatori automatici
 Exec=jogo-da-velha
 Icon=io.github.aigames.JogoDaVelha
 Terminal=false

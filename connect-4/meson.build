@@ -3,10 +3,11 @@ project('connect-4', 'c', version: '1.0.0',
   default_options: ['c_std=c11', 'warning_level=3'])
 
 glib = dependency('glib-2.0', version: '>=2.66')
-engine = static_library('game', ['src/game.c', 'src/minimax.c'], dependencies: glib)
+engine = static_library('game', ['src/game.c', 'src/minimax.c', 'src/i18n.c'], dependencies: glib)
 engine_dep = declare_dependency(link_with: engine, dependencies: glib,
   include_directories: include_directories('src'))
 test('minimax', executable('test-minimax', 'tests/test-minimax.c', dependencies: engine_dep), timeout: 120)
+test('i18n', executable('test-i18n', 'tests/test-i18n.c', dependencies: engine_dep))
 test('game', executable('test-game', 'tests/test-game.c', dependencies: engine_dep))
 
 if get_option('app')

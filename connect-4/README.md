@@ -1,11 +1,12 @@
-# Lig-4
+# Connect Four
 
-Aplicativo GNOME independente em C, GTK 4 e libadwaita, sob GPL-3.0-or-later.
+An independent GNOME application written in C with GTK 4 and libadwaita,
+licensed under GPL-3.0-or-later. Part of [AI-games](../README.md).
 
-## Compilar e executar
+## Build and run
 
-Requer compilador C11, Meson, Ninja, pkg-config, GLib >= 2.66, GTK >= 4.10
-e libadwaita >= 1.4, com seus arquivos de desenvolvimento.
+Requires a C11 compiler, Meson, Ninja, pkg-config, GLib >= 2.66, GTK >= 4.10,
+libadwaita >= 1.4, libsoup 3, and JSON-GLib, with development files.
 
 ```sh
 make
@@ -14,347 +15,393 @@ make test
 make install
 ```
 
-Os comandos acima são executados nesta pasta. Na raiz do repositório, use
-`make GAME=connect-4 run`. `make install` instala executável, ícone e lançador
-em `~/.local`; `PREFIX=/caminho` e `DESTDIR=/pasta` permitem escolher prefixo
-ou fazer uma instalação de preparação. A identidade GNOME é
-`io.github.aigames.Connect4`, o executável é `connect-4` e o nome exibido é
-**Lig-4**.
+Run these commands in this directory. From the repository root, use
+`make GAME=connect-4 run`. `make install` installs the executable, icon, and
+launcher under `~/.local`; `PREFIX=/path` and `DESTDIR=/staging` select another
+prefix or stage an installation. The GNOME application ID is
+`io.github.aigames.Connect4`, the executable is `connect-4`, and the English
+display name is **Connect Four**.
 
-## Jogar
+## Playing
 
-O tabuleiro tem 7 colunas e 6 linhas. Clique na coluna ou use as teclas **1–7**,
-inclusive do teclado numérico com ou sem Num Lock. A peça cai na casa vazia
-mais baixa. Colunas cheias não aceitam jogadas e não alteram o turno.
+The board has seven columns and six rows. Click a column or use keys **1–7**,
+including the numeric keypad with or without Num Lock. Each piece falls to
+the lowest empty cell. Full columns reject moves without changing the turn.
 
-Configure **Vermelho** e **Amarelo** separadamente nos seletores: **Humano**,
-**Posicional**, **Minimax** ou **Ollama**. Todas as 16 combinações são permitidas.
-O padrão é vermelho humano e amarelo posicional; vermelho sempre começa. Os discos vermelhos contêm uma cruz e os amarelos
-um anel para permitir sua identificação além da cor. Quatro ou mais peças
-iguais em sequência horizontal, vertical ou diagonal vencem. Todos os
-alinhamentos vencedores são destacados imediatamente. Tabuleiro cheio sem
-vencedor é empate.
+Configure **Red** and **Yellow** independently as **Human**, **Positional**,
+**Minimax**, or **Ollama**. All 16 combinations are allowed. The defaults are
+human Red and positional Yellow; Red always starts. Red discs contain a cross
+and yellow discs a ring so they can be distinguished beyond color. Four or
+more matching pieces in a horizontal, vertical, or diagonal line win. All
+winning alignments are highlighted immediately. A full board without a winner
+is a draw.
 
-O tabuleiro mantém proporção 7:6 e casas quadradas, centralizado na maior
-área disponível abaixo dos números das colunas. O slider define a **espera mínima do turno automático**
-de 0,0 a 3,0 s, em passos de 0,1 s, inicialmente 0,5 s. A análise começa
-junto com a espera; a peça é aplicada quando ambas terminarem. Alterá-lo
-reinicia apenas a espera, sem refazer o cálculo. O valor zero mantém a
-interface responsiva entre jogadas.
+The board preserves its 7:6 aspect ratio and square cells, centered in the
+largest available area below the column numbers. The slider sets the
+**minimum automated turn delay** from 0.0 to 3.0 seconds in 0.1-second steps,
+initially 0.5 seconds. Analysis starts with the timer; the move is applied when
+both finish. Changing the delay restarts only the timer, without recalculating.
+Zero delay keeps the interface responsive between moves.
 
-O resultado permanece por 3 segundos e outra partida começa, com os mesmos
-jogadores e delay. “Nova configuração” cancela a partida e seus temporizadores.
-As escolhas não são persistidas ao fechar.
+Results remain visible for three seconds before another game starts with the
+same players and delay. **New configuration** cancels the game and its timers.
+Player settings are not persisted after closing; the interface language is
+saved separately.
 
-## Avaliação estratégica
+## Strategic evaluation
 
-O motor usa matriz `int[6][7]`, com 0 para vazio, 1 para vermelho e -1 para
-amarelo. Avalia somente as jogadas legais por coluna, simulando a gravidade.
-Com tabuleiro vazio, todos os fatores estratégicos são zero e apenas o
-aleatório decide entre as sete colunas.
+The engine uses an `int[6][7]` matrix: 0 for empty, 1 for Red, and -1 for Yellow.
+It evaluates only legal column moves, simulating gravity. On an empty board,
+all strategic factors are zero and randomness alone chooses among the seven
+columns.
 
-Depois da abertura, cada jogada é simulada e **todas as 69 janelas de quatro
-casas do tabuleiro resultante** são avaliadas. Janelas com peças dos dois
-jogadores não contribuem. Para cada lado, janelas com uma, duas, três ou quatro
-peças têm pesos **10, 100, 1000 e 10000**. Janelas completamente vazias são
-contadas no histórico, mas não favorecem nenhum lado.
+After the opening, each move is simulated and **all 69 four-cell windows on
+the resulting board** are evaluated. Windows containing both players' pieces
+contribute nothing. For each side, windows with one, two, three, or four pieces
+have weights **10, 100, 1000, and 10000**. Completely empty windows are counted
+in the history but favor neither side.
 
-A contribuição de cada janela é dividida por **1 + número de apoios ausentes**.
-São contadas as casas vazias abaixo das casas vazias da janela, excluindo as
-que fazem parte da própria janela e sem contar o mesmo apoio duas vezes.
-Assim, uma sequência horizontal ou diagonal suspensa vale menos que outra
-acessível; os espaços de uma janela vertical podem apoiar uns aos outros
-conforme a sequência é desenvolvida.
+Each window's contribution is divided by **1 + missing supports**. The count
+includes empty cells below its empty cells, excluding cells belonging to the
+window itself and counting each support only once. Thus a suspended horizontal
+or diagonal line is worth less than an accessible one; cells in a vertical
+window can support each other as the sequence develops.
 
-O valor global da posição, do ponto de vista de quem vai jogar, é:
+The global position value, from the moving player's perspective, is:
 
 ```text
-posicional = 0,1 × (potencial próprio − 1,25 × potencial adversário)
+positional = 0.1 × (own potential − 1.25 × opponent potential)
 ```
 
-A defesa recebe peso ligeiramente maior. A escala mantém o componente global
-abaixo dos fatores táticos, inclusive quando a melhor jogada apenas reduz uma
-posição desfavorável. No histórico, os potenciais dos dois lados e as contagens
-de janelas sem/com apoios externos ausentes permitem conferir esse cálculo.
+Defense receives slightly greater weight. The scale keeps the global component
+below tactical factors, even when the best move only improves an unfavorable
+position. The history records both potentials and counts of windows with and
+without missing external supports so the calculation can be checked.
 
-São acrescentados estes componentes táticos, aplicados uma vez por coluna:
+These tactical components are added once per column:
 
-| Situação | Pontos |
+| Situation | Points |
 | --- | ---: |
-| Vitória imediata | +1.000.000.000 |
-| Bloqueio de uma vitória disponível antes da jogada | +10.000.000 |
-| Criação de garfo ou ameaça empilhada própria | +100.000 |
-| Alguma resposta adversária cria garfo ou ameaça empilhada relevante | −100.000 |
-| Permite vitória adversária imediata | −100.000.000 |
-| Sequência própria de vitória forçada demonstrada | +1.000.000 |
-| Sequência adversária de vitória forçada demonstrada | −20.000.000 |
+| Immediate win | +1,000,000,000 |
+| Block a win available before the move | +10,000,000 |
+| Create an own fork or stacked threat | +100,000 |
+| An opponent reply creates a relevant fork or stacked threat | −100,000 |
+| Allow an immediate opponent win | −100,000,000 |
+| Prove an own forced winning sequence | +1,000,000 |
+| Prove an opponent forced winning sequence | −20,000,000 |
 
-Jogadas que já vencem não recebem penalidades. Um garfo tem pelo menos duas
-**colunas distintas onde uma peça pode realmente cair e vencer**. Uma ameaça
-empilhada ocorre quando bloquear uma vitória dá apoio a outra casa de vitória
-na **mesma coluna**. O motor simula esse bloqueio e confere se o defensor pode
-vencer imediatamente em vez de defender. O bônus é aplicado uma vez, mesmo
-quando uma jogada cria tanto um garfo quanto um empilhamento.
+Already-winning moves receive no penalties. A fork requires at least two
+**distinct columns where a piece can actually land and win**. A stacked threat
+occurs when blocking one win supports another winning cell in the **same
+column**. The engine simulates the block and checks whether the defender can
+win immediately instead. The bonus applies once even when a move creates both
+a fork and a stacked threat.
 
-A análise das respostas adversárias também inclui empilhamentos. Ela ignora
-uma resposta perigosa que deixe nossa vitória imediata disponível. Casas sem
-apoio não são tratadas como vitórias imediatas; os casos em que uma jogada
-fornece esse apoio são detectados pela simulação.
+Opponent-reply analysis also includes stacked threats. It ignores dangerous
+replies that leave our immediate win available. Unsupported cells are not
+considered immediate wins; simulation detects when a move supplies that support.
 
-O motor também procura **cadeias contínuas de ameaças e bloqueios obrigatórios**.
-Depois da jogada candidata, explora ataques que criem uma vitória imediata
-para o próximo turno. O defensor deve bloquear, ou vencer antes; após o
-bloqueio, a análise continua com o próximo ataque. Duas ameaças em colunas
-distintas encerram a prova se o defensor não puder vencer imediatamente.
-Isso permite reconhecer preparações de garfos ao longo de vários bloqueios.
+The engine also searches for **continuous chains of threats and forced blocks**.
+After the candidate move, it explores attacks that create an immediate win
+for the next turn. The defender must block or win first; after the block,
+analysis continues with the next attack. Two threats in distinct columns
+complete the proof if the defender cannot win immediately. This detects fork
+preparation across several forced blocks.
 
-A análise tem limite de **12 meias-jogadas** e **1024 nós por tentativa**,
-com orçamento próprio para a prova adversária e, quando necessário, a própria.
-Vitórias, garfos e empilhamentos já demonstrados reaproveitam as provas curtas.
-Os novos bônus são adicionais aos componentes anteriores; a vitória imediata
-continua tendo prioridade. A abertura continua usando somente o aleatório.
-Quando a busca contínua não encontra uma prova, uma extensão permite até
-**duas jogadas preparatórias do atacante**, com **4096 nós por tentativa** e
-o mesmo limite de 12 meias-jogadas. Essas jogadas devem criar uma casa que
-completaria quatro peças ou fornecer apoio abaixo de uma dessas casas.
-Se não houver ameaça imediata, **todas as respostas legais do defensor**
-precisam levar à vitória do atacante para que a derrota seja penalizada.
-Isso antecipa ataques com preparação de garfos e empilhamentos, sem assumir
-que o adversário colaborará fornecendo apoio.
+Analysis is limited to **12 plies** and **1,024 nodes per attempt**, with separate
+budgets for opponent proofs and, when needed, own proofs. Already-proven wins,
+forks, and stacked threats reuse short proofs. These bonuses add to earlier
+components; immediate wins retain priority. Openings still use only randomness.
 
-O histórico registra vitória/derrota com preparação, além dos indicadores de
-vitória/derrota forçada e de limite de nós atingido. As preparações usam os
-mesmos bônus e penalidades das outras provas, sem pontuação duplicada.
-Não encontrar uma cadeia não demonstra segurança: outras preparações e
-sequências além dos limites continuam fora dessa análise.
+When continuous search finds no proof, an extension permits up to **two
+preparatory attacker moves**, with **4,096 nodes per attempt** and the same
+12-ply limit. Preparatory moves must create a cell that would complete four
+pieces or provide support below such a cell. Without an immediate threat,
+**every legal defender reply** must lead to an attacker win before the loss
+is penalized. This anticipates prepared forks and stacked threats without
+assuming the opponent will cooperate by supplying support.
 
-Uma parcela aleatória em `[0; 0,1)` é somada por coluna. O maior total vence;
-em empate exato, prevalece a coluna mais à esquerda. Os pesos estão em
-constantes nomeadas no motor. A avaliação posicional é complementada pela análise tática e pelas cadeias
-forçadas descritas acima; não há busca geral minimax nem garantia de jogo perfeito.
+The history records wins/losses requiring preparation, forced-win/loss flags,
+and node-budget exhaustion. Preparations use the same bonuses and penalties
+as other proofs, without duplicate scoring. Failure to find a chain does not
+prove safety: other preparations and sequences beyond the limits remain outside
+this analysis.
+
+A random component in `[0, 0.1)` is added per column. The highest total wins;
+exact ties favor the leftmost column. Weights are named constants in the
+engine. Positional evaluation is supplemented by the tactical analysis and
+forced chains above; it does not perform general Minimax search or guarantee
+perfect play.
 
 ## Minimax
 
-O slider de profundidade aparece separadamente para cada lado selecionado
-como Minimax: **1–12, padrão 6**, em passos inteiros. Cada nível é uma jogada
-individual, incluindo a candidata, e o nível efetivo é limitado às casas
-restantes. A avaliação das folhas usa o valor global do tabuleiro com os
-descontos de acessibilidade descritos acima, da perspectiva do jogador da
-raiz. Ela não executa a análise de cadeias forçadas do jogador Posicional.
+Each Minimax player has an independent depth slider: **1–12, default 6**, in
+integer steps. Each level is one individual move, including the candidate;
+effective depth is capped at remaining cells. Leaf evaluation uses the global
+board value and accessibility discounts described above, from the root player's
+perspective. It does not run the Positional player's forced-chain analysis.
 
-A busca usa poda alfa-beta, aprofundamento progressivo e uma tabela de
-transposições de até 16 MiB por busca. Na raiz, cada alternativa legal recebe
-um valor completo, permitindo comparar os valores do histórico. Terminais
-prevalecem sobre a avaliação posicional; são preferidas vitórias mais rápidas
-e derrotas mais tardias. O aleatório desempata melhores alternativas com
-tolerância de 1e-9. Com o tabuleiro vazio, nenhuma busca é feita: todas as
-alternativas têm valor zero e a primeira jogada é aleatória uniforme.
+The search uses alpha-beta pruning, iterative deepening, and a transposition
+table of up to 16 MiB per search. At the root, every legal alternative receives
+a complete search value so history values can be compared. Terminal results
+take precedence over positional evaluation; faster wins and later losses are
+preferred. Random selection breaks ties among the best alternatives within
+1e-9 tolerance. On an empty board, no search is performed: all alternatives
+have value zero and the opening move is uniformly random.
 
-O jogador **Posicional** mantém a fórmula e os fatores táticos existentes.
-Os cálculos automáticos usam cópias do tabuleiro e geradores aleatórios
-independentes em segundo plano. Há somente uma análise ativa por aplicativo.
-O indicador mostra a profundidade concluída/alvo durante a busca minimax.
+The **Positional** player retains its own formula and tactical factors.
+Automated calculations use board copies and independent random generators
+in background tasks. Each application runs at most one analysis at a time.
+During Minimax search, the progress indicator shows completed/target depth.
 
-Não há limite de tempo: o minimax termina a profundidade escolhida.
-Valores altos podem demorar; “Nova configuração” cancela o cálculo e permite
-escolher outro nível. Alterar o tipo de jogador oculta ou revela seu slider,
-preservando o valor escolhido. O reinício automático conserva tipos e níveis;
-fechar a janela cancela as tarefas, e resultados antigos não podem executar
-jogadas numa partida nova.
+Minimax has no time limit: it completes the selected depth. High depths may
+take time; **New configuration** cancels the calculation so you can choose
+another depth. Changing a player's type hides or shows its depth slider while
+preserving the selected value. Automatic restarts preserve types and depths.
+Closing the window cancels tasks, and stale results cannot make moves in a
+new game.
 
-## Histórico
+## History
 
-Antes de cada jogada, inclusive humana, o histórico recebe tabuleiro anterior,
-coluna e linha de queda, componentes posicionais, fatores táticos, aleatório
-e total de cada coluna legal. O Posicional usa exatamente esses valores. No turno Minimax, uma tabela
-adicional registra os valores da busca usados na escolha, profundidade
-solicitada/concluída, nós visitados, duração e a coluna escolhida. O título de
-cada jogada e a configuração identificam Humano, Posicional, Minimax ou Ollama.
-Linhas são numeradas de 1 a 6 de cima para baixo. O tabuleiro textual usa
-V para vermelho e A para amarelo.
+Before each move, including human moves, the history records the previous
+board, column and landing row, positional components, tactical factors,
+randomness, and total for every legal column. Positional uses these exact
+values. Minimax adds a table with the search values used for selection,
+requested/completed depth, visited nodes, duration, and chosen column. Move
+titles and game configuration identify Human, Positional, Minimax, or Ollama.
+Rows are numbered 1–6 from top to bottom. Text boards use V for Red
+(Portuguese “vermelho”) and A for Yellow (“amarelo”).
 
-Vitórias são acrescentadas a **`histórico-connect-4.md` no diretório de
-execução**, com data, hora local, fuso, configuração, vencedor e tabuleiro
-final. Empates e partidas abandonadas são descartados. O histórico em memória
-é limpo a cada nova partida; o arquivo acumulado é preservado.
+Wins are appended to **`histórico-connect-4.md` in the working directory**,
+with date, local time, time zone, configuration, winner, and final board.
+Draws and abandoned games are discarded. In-memory history resets for each
+new game; the accumulated file is preserved.
 
-Erros de gravação aparecem com um botão “Tentar gravar”. Registros pendentes
-permanecem na sessão enquanto outras partidas continuam. Uma nova vitória
-também tenta gravá-los; fechar o aplicativo descarta o que ainda não foi salvo.
-A gravação usa bloqueio entre instâncias e desfaz um append parcial antes
-de permitir nova tentativa.
+Write errors appear with a **Retry saving** button. Pending records remain in
+the session while other games continue. New wins also retry saving; closing
+the application discards unsaved records. Writes use interprocess locking and
+roll back partial appends before allowing another attempt.
 
-## Testes
+## Tests
 
-`make test` testa somente o motor e requer apenas GLib e ferramentas de build.
-Os testes incluem gravidade, colunas cheias, vitórias nas quatro direções,
-alinhamentos múltiplos e longos, empate, abertura, prioridades, garfos,
-armadilhas de apoio, ameaças empilhadas, acessibilidade e avaliação global,
-posições espelhadas e cores trocadas, 300 partidas geradas, histórico e
-recuperação de escrita parcial. A partida de 2026-10-16 às 17:32:12 é usada
-como regressão: a avaliação agora prefere a coluna 4 na jogada 13 e identifica
-o empilhamento que apareceu no final da sequência original. Outra regressão
-cobre a derrota de 22 jogadas encontrada na abertura 7/4, com semente 0:
-a coluna 2 na jogada 11 agora é identificada como perdedora por uma cadeia
-forçada, e uma alternativa sem essa prova de derrota é escolhida. As duas
-regressões cobrem espelhamento horizontal e troca de cores.
+`make test` tests the engine and requires only GLib and build tools. Tests cover
+gravity, full columns, wins in four directions, multiple and extended winning
+alignments, draws, opening behavior, priorities, forks, support traps, stacked
+threats, accessibility and global evaluation, mirrored positions and color
+swaps, 300 generated games, history, and partial-write recovery.
 
-As vitórias do Minimax de 2026-10-16 às 18:18:02 (25 jogadas) e 18:17:50
-(29 jogadas) também são regressões. A extensão com preparações identifica
-como perdedoras a coluna 5 na jogada 18 e a coluna 2 na jogada 22,
-respectivamente, e escolhe alternativas sem essa prova de derrota. Os casos
-cobrem espelhamento e troca de cores; uma busca Minimax de profundidade 8
-confirma as perdas das escolhas antigas e a existência de alternativas que
-evitam essas sequências. Isso não garante empate ou vitória na partida completa.
+The game at 17:32:12 on 2026-10-16 is a regression: evaluation now prefers
+column 4 on move 13 and detects the stacked threat at the end of the original
+sequence. Another regression covers the 22-move loss from opening 7/4 with
+seed 0: column 2 on move 11 is now identified as losing through a forced chain,
+and an alternative without that proof of defeat is chosen. Both cover
+horizontal mirroring and color swaps.
 
-Retomando essas duas posições antes do erro, com sementes 0–7 e ambos os
-jogadores recalculando as jogadas seguintes (Minimax vermelho, profundidade 6),
-a partida de 25 jogadas passou a terminar em 40 ou 41: quatro vitórias de
-cada lado. A de 29 passou a terminar em 33, com oito vitórias do Minimax.
-Nenhuma dessas 16 continuações terminou antes de 75% de ocupação (até 31
-jogadas). Essa amostra preserva as primeiras 17 ou 21 jogadas históricas;
-não representa uma taxa de vitórias para partidas iniciadas do zero.
+Minimax wins at 18:18:02 (25 moves) and 18:17:50 (29 moves) on 2026-10-16 are
+also regressions. The preparation extension identifies column 5 on move 18
+and column 2 on move 22, respectively, as losing and chooses alternatives
+without that proof. Cases cover mirroring and color swaps; depth-8 Minimax
+confirms the old choices lose and alternatives avoid those sequences. This
+does not guarantee a draw or win in the complete game.
 
-Na comparação anterior, ao introduzir as cadeias contínuas, com sementes
-0–999 para cada abertura 1/4 e 7/4, preservando
-somente as duas jogadas iniciais, as 2.000 partidas entre jogadores automáticos
-passaram de 1.239 vitórias de Amarelo em 22 jogadas e 761 empates para 1.239
-vitórias de Amarelo em 40 jogadas e 761 empates. Não houve vitória até 31
-jogadas nessa nova amostra. O resultado é condicionado às aberturas e sementes
-avaliadas; não demonstra ausência de outras derrotas rápidas.
+Resuming these two positions before the mistake, with seeds 0–7 and both
+players recalculating subsequent moves (Red Minimax at depth 6), the 25-move
+game instead ended after 40 or 41 moves: four wins for each side. The 29-move
+game ended after 33 moves, with eight Minimax wins. None of these 16
+continuations ended below 75% board occupancy (31 moves or fewer). This sample
+preserves the first 17 or 21 historical moves; it is not a win rate for games
+started from scratch.
 
-`make test-ui` compila e executa também os testes de teclado, mouse, geometria,
-temporizadores, reinício, modos de jogadores e recuperação da gravação;
-requer uma sessão gráfica ou um display de testes. Os testes abrem uma janela
-temporária e usam históricos temporários. Para verificar visualmente, teste
-janelas largas e altas, os temas claro e escuro e a marcação das vitórias.
+In the earlier comparison introducing continuous chains, seeds 0–999 for each
+opening 1/4 and 7/4 preserved only the first two moves. Those 2,000 automated
+games changed from 1,239 Yellow wins after 22 moves and 761 draws to 1,239
+Yellow wins after 40 moves and 761 draws. No game in the new sample had a
+winner by move 31. These results depend on the openings and seeds tested;
+they do not establish the absence of other quick losses.
 
+`make test-ui` also builds and runs keyboard, mouse, geometry, timer, restart,
+player-mode, and write-recovery tests. It requires a graphical session or
+test display. Tests open a temporary window and use temporary histories. For
+visual checks, try wide and tall windows, light and dark themes, and winning
+alignment highlights.
 
-## Jogador Ollama
+## Ollama player
 
-Cada jogador pode selecionar **Ollama**, além de Humano, Posicional ou Minimax.
-O seletor **Modelo** aparece somente para Ollama e é independente para os dois
-jogadores. A lista é consultada em segundo plano, ordenada por nome, e pode ser
-recarregada com **Atualizar modelos**. A consulta usa `GET /api/tags`, a API
-correspondente à lista de modelos disponíveis no serviço consultado por `ollama list`.
-A primeira escolha é o primeiro modelo da lista; atualizações preservam cada
-seleção enquanto o modelo continuar disponível. Sem serviço ou modelos, o início
-com Ollama fica desabilitado; os demais jogadores continuam disponíveis.
+Each player can select **Ollama**, alongside Human, Positional, or Minimax.
+The **Model** selector appears only for Ollama and is independent for each
+player. The list loads in the background, is sorted by name, and can be
+reloaded with **Refresh models**. It uses `GET /api/tags`, the API for the
+models available on the service queried by `ollama list`. Initially the first
+model is selected; refreshes preserve each selection while it remains
+available. If the service or models are unavailable, starting with Ollama is
+disabled; other player types remain available.
 
-O serviço deve estar ativo em **http://127.0.0.1:11434**. Instale um modelo pelo
-próprio Ollama antes de jogar; o aplicativo não baixa modelos nem inicia o servidor.
-Se necessário, use `ollama serve` e, por exemplo, `ollama pull llama3.2:3b`.
-Os modelos selecionados continuam nas partidas seguintes durante a sessão.
-Modelos que não aceitem geração de texto ou a resposta estruturada solicitada
-produzirão um erro de jogada, sem substituição por outro algoritmo.
+The service must be running at **http://127.0.0.1:11434**. Install a model
+through Ollama before playing; the application does not download models or
+start the server. If needed, run `ollama serve` and, for example,
+`ollama pull llama3.2:3b`. Selected models carry over between games during the
+session. Models that cannot generate text or produce the requested structured
+response cause a turn error, without substitution by another algorithm.
 
-Cada turno envia as regras, o tabuleiro com símbolos e coordenadas, a identificação do jogador e as jogadas
-legais por `POST /api/generate`, com resposta JSON estruturada. O modelo escolhe
-inclusive a primeira jogada. As avaliações posicionais continuam no histórico,
-mas não são enviadas como sugestões ao modelo. A resposta é validada novamente
-pelo motor: posições ocupadas e colunas cheias não são aceitas.
+Each turn sends the rules, board symbols and coordinates, player identity,
+and legal moves through `POST /api/generate`, requesting a structured JSON
+response. The model chooses the opening move too. Positional evaluations
+remain in the history but are not sent as suggestions to the model. The
+engine validates the response again: occupied cells and full columns are
+not accepted.
 
-A interface permanece disponível durante a consulta. O delay continua sendo o
-tempo mínimo do turno, sobreposto à geração. A lista tem prazo total de 100 s;
-cada jogada, 1.800 s (30 minutos), incluindo o carregamento do modelo. Falhas de conexão,
-timeout e respostas inválidas **pausam a partida**, preservando o tabuleiro.
-Use **Tentar novamente** para repetir a mesma posição, ou **Nova configuração**
-para abandonar a partida. Não existe jogada automática de reserva. Fechar ou
-reconfigurar cancela a solicitação e descarta resultados atrasados.
+The interface remains responsive during requests. The delay remains a minimum
+turn time and overlaps generation. Model listing has a total deadline of
+100 seconds; each turn has 1,800 seconds (30 minutes), including model loading.
+Connection failures, timeouts, and invalid responses **pause the game** while
+preserving the board. Use **Retry** to request a move for the same position,
+or **New configuration** to abandon the game. There is no fallback automated
+move. Closing or reconfiguring cancels the request and discards late results.
 
-O histórico identifica o modelo, a jogada, a duração e tentativas com erro.
-Mantém-se a política de salvar apenas partidas com vencedor e reiniciar após
-três segundos. Empates e partidas abandonadas não são gravados.
+The history identifies the model, move, duration, and failed attempts. Only
+games with a winner are saved, followed by a restart after three seconds.
+Draws and abandoned games are not saved.
 
-O build dos aplicativos agora também requer **libsoup 3** e **JSON-GLib**:
+Application builds also require **libsoup 3** and **JSON-GLib**:
 
 ```sh
 # Fedora
 sudo dnf install libsoup3-devel json-glib-devel
 ```
 
-`make test` continua testando os motores apenas com GLib. `make test-ollama`
-compila o aplicativo e executa os testes do cliente, sem exigir display nem um
-Ollama real: há validação de protocolo sem rede e testes HTTP com servidor
-simulado. Os testes HTTP são marcados como ignorados se o ambiente impedir
-sockets locais. `make test-ui` inclui as 16 combinações de jogadores, escolhas
-independentes de modelos, atualização da lista, falhas, repetição e cancelamento.
-Os testes de interface requerem uma sessão gráfica.
+`make test` tests the engines using only GLib. `make test-ollama` builds the
+application and tests the client without a display or a real Ollama instance:
+it includes protocol validation without networking and HTTP tests using a
+mock server. HTTP tests are skipped when the environment blocks local sockets.
+`make test-ui` covers all 16 player combinations, independent model selections,
+list refresh, failures, retries, and cancellation. GUI tests require a
+graphical session.
 
+### Full communication log
 
-### Registro completo de comunicação
+All model queries and move requests are appended to **`ollama.log` in the
+working directory**, regardless of wins, draws, errors, or abandoned games.
+The file is preserved across games and application runs. Set `OLLAMA_LOG_FILE`
+to choose another path.
 
-Todas as consultas de modelos e solicitações de jogada são acrescentadas ao
-arquivo **`ollama.log` no diretório de execução**, independentemente de vitória,
-empate, erro ou abandono. O arquivo não é zerado entre partidas ou execuções.
-A variável `OLLAMA_LOG_FILE` permite escolher outro caminho.
+Each line is a JSON object containing a timestamp and time zone, game, process,
+request identifier, event, method, URL, available headers, elapsed time, and
+complete outgoing or incoming body. Requests, responses, errors, cancellations,
+and timeouts share the request identifier. Bodies that are not valid UTF-8
+are preserved as Base64. Incoming bodies are logged before validation,
+including HTTP error responses and invalid JSON.
 
-Cada linha é um objeto JSON com data/hora e fuso, jogo, processo, identificador
-da consulta, evento, método, URL, headers disponíveis, tempo decorrido e corpo
-completo enviado ou recebido. Requisições, respostas, erros, cancelamentos e
-timeouts compartilham o identificador da consulta. Corpos inválidos para UTF-8
-são preservados em Base64. O corpo recebido é registrado antes da validação,
-incluindo respostas HTTP de erro e JSON inválido.
+The `thinking` field and any `<think>` text are preserved when returned by
+Ollama. The log records what the server actually returns. **Extended reasoning**
+controls the reasoning request described below. Since the integration uses
+`stream: false`, the complete response is logged when the request finishes;
+interruptions may leave no partial body. Log write failures are reported in
+the terminal and do not interrupt the game. Git ignores the log file.
 
-O campo `thinking` e qualquer texto `<think>` são preservados quando enviados
-pelo Ollama. A gravação do log registra o conteúdo que o servidor efetivamente retorna.
-A opção “Raciocínio ampliado” controla a solicitação de raciocínio descrita abaixo. Como a integração usa `stream: false`, a resposta
-completa é registrada ao terminar a consulta; interrupções podem não fornecer
-um corpo parcial. Uma falha de gravação é informada no terminal e não interrompe
-a partida. O arquivo é ignorado pelo Git.
-
-Para ler o `thinking` retornado nas respostas JSON, com `jq`:
+To read `thinking` from JSON responses using `jq`:
 
 ```sh
 jq -r 'select(.event == "response") | .body | fromjson | .thinking // empty' ollama.log
 ```
 
+### Ollama playing strength
 
-### Força do jogador Ollama
+Prompts identify the player's pieces as **Y**, opposing pieces as **A**, and
+empty cells as **.**. They number rows and columns and give coordinates for
+every legal move. Connect Four includes each disc's landing row under gravity;
+Tic-Tac-Toe retains numeric keypad numbering. Models are instructed to check
+wins and opponent replies before considering forks and longer-term plans.
 
-O prompt agora identifica as peças próprias com **Y**, as adversárias com **A**
-e casas vazias com **.**, numera linhas e colunas e informa as coordenadas de
-cada jogada legal. No Lig-4, informa a linha em que o disco cairá, respeitando
-a gravidade; no jogo da velha, mantém a numeração do teclado numérico.
-O modelo recebe instruções para verificar vitórias e respostas adversárias
-antes de considerar garfos e planos de longo prazo.
+Each Ollama player has two independent options, preserved between games:
 
-Cada jogador Ollama tem duas opções independentes, mantidas entre partidas:
+- **Tactical assistance**: off by default, preserving **pure** mode. When
+  enabled, the engine restricts choices to immediate wins when available.
+  Otherwise it restricts choices to moves avoiding an opponent win on the
+  next reply, if any exist. If every move allows an immediate loss, all legal
+  moves remain available. These are tactical facts verified by rule simulation;
+  Positional and Minimax scores do not guide the choice. The model still
+  chooses the move.
+- **Extended reasoning**: on by default. For models advertising controls in
+  `/api/show`, requests `true`, the `high` level when available, or an advertised
+  supported default. Without this metadata, preserves the model's default
+  behavior to avoid incompatible parameters. Turning it off also preserves
+  default behavior, which may include reasoning.
 
-- **Assistência tática**: desmarcada por padrão, mantendo o modo **puro**.
-  Quando marcada, o motor restringe as escolhas às vitórias imediatas, se
-  existirem. Caso contrário, restringe às jogadas que não permitem uma vitória
-  adversária na resposta seguinte, se houver alguma. Se todas permitirem uma
-  derrota imediata, todas as escolhas legais continuam disponíveis. São fatos
-  táticos verificados por simulação das regras; as pontuações do Posicional e
-  do Minimax não participam da escolha. O modelo continua escolhendo a jogada.
-- **Raciocínio ampliado**: marcada por padrão. Para modelos que anunciam
-  controles em `/api/show`, solicita `true`, o nível `high` quando disponível,
-  ou um valor padrão anunciado e suportado. Sem esses metadados, mantém o
-  comportamento padrão do modelo, evitando parâmetros incompatíveis.
-  Desmarcar também mantém o comportamento padrão, que pode incluir raciocínio.
+For models named `cogito` or `cogito:tag` (including namespaced models), extended
+reasoning uses the Cogito v1 protocol. It first requests analysis with
+`Enable deep thinking subroutine.` in the system prompt, without restricting
+generation to a JSON schema. It then sends the analysis to the same model in
+a second request to select the move using the JSON schema. Name recognition
+does not cover arbitrarily renamed models or Cogito 2.1. Requests share the
+turn's 1,800-second (30-minute) deadline and cancellation. Failure at either
+stage pauses the game, without automatic substitution.
 
-Para modelos com nome `cogito` ou `cogito:tag` (inclusive em namespace), a
-ampliação usa o protocolo do Cogito v1: primeiro solicita análise com
-`Enable deep thinking subroutine.` no sistema, sem restringir a geração ao
-esquema JSON. Depois envia essa análise ao mesmo modelo para selecionar a
-jogada em uma segunda consulta, com o esquema JSON. O reconhecimento pelo
-nome não abrange modelos renomeados arbitrariamente nem Cogito 2.1.
-As consultas compartilham o prazo total de 1.800 segundos (30 minutos) e o cancelamento do
-turno. Uma falha em qualquer etapa pausa a partida, sem substituição automática.
+The engine also validates the assistance filter: a legal response outside the
+permitted set is rejected and can be retried. The history records pure or
+assisted mode, allowed alternatives, reasoning request, strategy used, and
+total duration. `ollama.log` includes metadata requests, analysis, the final
+decision, and complete responses.
 
-O motor valida também o filtro assistido: uma resposta legal que ignore esse
-filtro é rejeitada e pode ser repetida. O histórico identifica modo puro ou
-assistido, alternativas permitidas, solicitação de raciocínio, estratégia usada
-e duração total. `ollama.log` inclui as consultas de metadados, a análise e a
-decisão final, além das respostas completas.
+Tests reproduce the immediate threats in Cogito's losses at 18:43:39 and
+18:43:54 on 2026-10-16: assistance requires blocks in columns 4 and 2,
+respectively. At 18:43:47, two simultaneous threats already existed before the
+last decision; the filter detects the absence of an immediate defense. This
+does not guarantee avoiding forks prepared earlier or beating Positional.
+These cases also cover mirroring and color swaps.
 
-Os testes reproduzem as ameaças imediatas das derrotas do Cogito de 18:43:39 e
-18:43:54 em 2026-10-16: o modo assistido exige os bloqueios nas colunas 4 e 2,
-respectivamente. Na derrota de 18:43:47, já existiam duas ameaças simultâneas
-antes da última decisão: o filtro reconhece a ausência de defesa imediata.
-Isso não garante evitar garfos preparados em turnos anteriores ou vencer o
-Posicional. Os casos também cobrem espelhamento e troca de cores.
+Protocol references: [Ollama thinking](https://docs.ollama.com/capabilities/thinking)
+and [Cogito extended reasoning](https://ollama.com/library/cogito:3b).
 
-Referências do protocolo: [thinking no Ollama](https://docs.ollama.com/capabilities/thinking)
-e [raciocínio ampliado do Cogito](https://ollama.com/library/cogito:3b).
+### Ollama errors
+
+**`ollama-error.log`** is created in the working directory when the first error
+occurs. It accumulates only failures and cancellations across games: connection
+and HTTP errors, invalid JSON or model lists, incomplete analysis, illegal
+moves or moves outside the assistance filter, HTTP timeouts, and the total
+turn deadline. Set `OLLAMA_ERROR_LOG_FILE` to choose another path.
+
+The format is JSON Lines, with timestamp, game, process, operation, model when
+applicable, assistance mode, reasoning request, duration, and error message.
+`operation_id` connects all stages of a turn; `request_id` identifies the last
+HTTP request, when present. These fields also appear in `ollama.log`. HTTP
+and board/alternative context are included when available, allowing diagnosis
+even after a successful HTTP response. Transport errors are not duplicated
+by the operation summary. The full log continues to preserve sent and received
+bodies.
+
+Both files append with interprocess locking. Full-log write failures are
+reported in the error log; if that also fails, the terminal reports the error.
+Logging problems do not change moves or trigger automatic retries. Git ignores
+both logs.
+
+Connect Four retains its immediate-win/loss filter. Complete defense to the
+end of the game is available only in Tic-Tac-Toe, whose state space is small.
+
+## Interface language
+
+
+The header offers **System default**, **English**, **Português**, **Español**
+and **Italiano**. On first launch the app uses the system's preferred supported
+language; if none matches, it uses **English**. Regional variants such as
+`pt_BR`, `pt_PT`, `es_MX` and `it_IT` are recognized. Select an explicit language
+to override detection, or **System default** to return to automatic selection.
+
+Changes apply immediately to controls, tooltips, turn/result messages and
+application-generated errors, preserving the current game and player settings.
+The choice is saved separately for each application in
+`$XDG_CONFIG_HOME/ai-games/connect-4.ini`, normally
+`~/.config/ai-games/connect-4.ini`. Missing or unsupported preferences use
+system detection. A malformed file also falls back to detection and reports
+its read error in the terminal.
+
+Catalogs are embedded in the binaries, so direct builds and installed apps use
+the same translations without additional locale packages. To maintain them,
+edit `src/i18n-catalog.inc` (English, Portuguese, Spanish, Italian). Keep all
+printf placeholders in the same order. `make test` covers the full catalog,
+format compatibility, locale selection, preference persistence and concurrent
+translation reads. `make test-ui` additionally covers live switching during a
+game and computation; it requires a graphical session.
+
+Ollama prompts and the established Markdown history syntax retain their existing
+language and format. Recorded log entries and server/OS error details are
+preserved as received; application-generated errors use the active language.

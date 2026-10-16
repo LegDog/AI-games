@@ -56,11 +56,11 @@ clean:
 
 help:
 	@printf '%s\n' \
-		'make             Compilar o aplicativo' \
-		'make run         Compilar e executar' \
-		'make test        Testar o motor sem dependências gráficas' \
-		'make test-ollama  Testar o cliente Ollama sem precisar de display ou modelos' \
-		'make test-ui     Testar também a interface (requer display)' \
-		'make install     Instalar em PREFIX (padrão: ~/.local)' \
-		'make clean       Limpar os artefatos gerenciados pelo Meson' \
-		'Variáveis: PREFIX, BUILD_DIR, TEST_BUILD_DIR, UI_BUILD_DIR, MESON_ARGS'
+		'make             Build the application' \
+		'make run         Build and run' \
+		'make test        Test the engine without graphical dependencies' \
+		'make test-ollama  Test the Ollama client without a display or models' \
+		'make test-ui     Include interface tests (requires a display)' \
+		'make install     Install under PREFIX (default: ~/.local)' \
+		'make clean       Clean Meson-managed build artifacts' \
+		'Variables: PREFIX, BUILD_DIR, TEST_BUILD_DIR, UI_BUILD_DIR, MESON_ARGS'

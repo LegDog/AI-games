@@ -3,7 +3,7 @@
 GAMES := jogo-da-velha connect-4
 ifdef GAME
 ifeq ($(filter $(GAME),$(GAMES)),)
-$(error GAME deve ser jogo-da-velha ou connect-4)
+$(error GAME must be jogo-da-velha or connect-4)
 endif
 SELECTED_GAMES := $(GAME)
 else
@@ -21,10 +21,10 @@ run:
 
 help:
 	@printf '%s\n' \
-		'make / make test / make install / make clean: atuar nos dois jogos' \
-		'make test-ollama: testar a integração Ollama nos dois jogos' \
-		'make GAME=connect-4: compilar apenas o Lig-4' \
-		'make run: executar o jogo da velha' \
-		'make GAME=connect-4 run: executar o Lig-4' \
-		'make -C connect-4 help: opções do projeto individual' \
-		'Variáveis de build (PREFIX, MESON_ARGS, etc.) são repassadas aos projetos.'
+		'make / make test / make install / make clean: operate on both games' \
+		'make test-ollama: test Ollama integration in both games' \
+		'make GAME=connect-4: build only Connect Four' \
+		'make run: launch Tic-Tac-Toe' \
+		'make GAME=connect-4 run: launch Connect Four' \
+		'make -C connect-4 help: individual project options' \
+		'Build variables (PREFIX, MESON_ARGS, etc.) are forwarded to each project.'

@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "game.h"
+#include "i18n.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -214,7 +215,7 @@ gboolean game_append_report(const char *path, const char *report, GError **error
     int fd = g_open(path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0666);
     if (fd < 0) {
         g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
-                    "Não foi possível abrir %s: %s", path, g_strerror(errno));
+                    _("Could not open %s: %s"), path, g_strerror(errno));
         return FALSE;
     }
     /* Serialize separate app instances, and roll back an incomplete append so
@@ -258,7 +259,7 @@ gboolean game_append_report(const char *path, const char *report, GError **error
     close(fd);
     if (saved_errno)
         g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(saved_errno),
-                    "Não foi possível gravar %s: %s%s", path, g_strerror(saved_errno),
-                    rollback_failed ? ". Falha ao remover gravação parcial; confira o arquivo antes de tentar novamente" : "");
+                    _("Could not write %s: %s%s"), path, g_strerror(saved_errno),
+                    rollback_failed ? _(". Could not remove the partial write; check the file before retrying") : "");
     return saved_errno == 0;
 }
