@@ -31,8 +31,8 @@ hosted workflow. See [contributor guidance](../CONTRIBUTING.md),
 
 CI uses read-only repository permissions and version-pinned actions, following
 [GitHub workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax).
-Pinned upstream releases: [checkout v4.3.1](https://github.com/actions/checkout/releases/tag/v4.3.1)
-and [upload-artifact v4.6.2](https://github.com/actions/upload-artifact/releases/tag/v4.6.2).
+Pinned upstream releases: [checkout v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1)
+and [upload-artifact v7.0.2](https://github.com/actions/upload-artifact/releases/tag/v7.0.2).
 
 ## Application rename
 
