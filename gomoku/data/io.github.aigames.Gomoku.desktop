@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=AI Games: Go-Moku
+Name[pt]=Jogos de IA: Go-Moku
+Name[es]=Juegos de IA: Go-Moku
+Name[it]=Giochi IA: Go-Moku
+Comment=Play freestyle five in a row and compare search algorithms
+Comment[pt]=Jogue cinco em linha e compare algoritmos de busca
+Comment[es]=Juega cinco en línea y compara algoritmos de búsqueda
+Comment[it]=Gioca a cinque in fila e confronta gli algoritmi di ricerca
+Exec=gomoku
+Icon=io.github.aigames.Gomoku
+Terminal=false
+Type=Application
+Categories=Game;BoardGame;
+Keywords=Go-Moku;Minimax;AI;Gomoku;Five in a Row;
+StartupNotify=true

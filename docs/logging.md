@@ -68,3 +68,8 @@ rotation, and logging failure behavior are preserved. No additional requests are
 made. Existing non-streaming responses arrive as complete messages. Clearing or
 closing the on-screen transcript does not delete or change log files. As with
 logs, review transcript contents before sharing copied text or screenshots.
+
+Go-Moku uses `gomoku-history.md`, `gomoku-ollama.log`, and
+`gomoku-ollama-error.log`. Histories include wins/draws, coordinate moves, seeds,
+per-side budgets, heuristic tables, and completed search depth/node/cutoff counts.
+Its Ollama messages window shares the existing observer and viewer.

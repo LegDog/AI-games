@@ -42,9 +42,10 @@ jobs:
           python3 scripts/test-sokoban-runner.py
           python3 scripts/test-go-tournament.py
           python3 scripts/test-pentago-tournament.py
+          python3 scripts/test-gomoku-tournament.py
           python3 scripts/generate-heptalpha-board.py --check
           python3 scripts/generate-pentalpha-crossed-circle-board.py --check
-          desktop-file-validate four-in-a-row/data/*.desktop tic-tac-toe/data/*.desktop pentalpha/data/*.desktop heptalpha/data/*.desktop peg-solitaire/data/*.desktop pentalpha-crossed-circle/data/*.desktop reversi/data/*.desktop hex/data/*.desktop tavli/data/*.desktop sokoban/data/*.desktop go/data/*.desktop pentago/data/*.desktop
+          desktop-file-validate four-in-a-row/data/*.desktop tic-tac-toe/data/*.desktop pentalpha/data/*.desktop heptalpha/data/*.desktop peg-solitaire/data/*.desktop pentalpha-crossed-circle/data/*.desktop reversi/data/*.desktop hex/data/*.desktop tavli/data/*.desktop sokoban/data/*.desktop go/data/*.desktop pentago/data/*.desktop gomoku/data/*.desktop
       - name: GUI tests and actual application screenshots
         run: |
           xvfb-run -a dbus-run-session -- make test-ui MESON_ARGS=-Dwerror=true
@@ -60,6 +61,7 @@ jobs:
           xvfb-run -a dbus-run-session -- sokoban/build-ui/screenshot screenshots
           xvfb-run -a dbus-run-session -- go/build-ui/screenshot screenshots
           xvfb-run -a dbus-run-session -- pentago/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- gomoku/build-ui/screenshot screenshots
           OLLAMA_VIEW_SCREENSHOT="$PWD/screenshots/ollama-messages.png" xvfb-run -a dbus-run-session -- hex/build-ui/test-ollama-view -p /ollama-view/lifecycle-worker-copy-stale
       - name: Upload screenshots
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

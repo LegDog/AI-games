@@ -100,3 +100,10 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none \
 This captures the real conversation widgets with test prompts/responses, without
 a running model or private game data. Review the blue Sent, gold Thinking,
 green Received text, readable formatting, scrolling, and copy/follow controls.
+
+## Go-Moku
+
+After `make GAME=gomoku test-ui`, run `gomoku/build-ui/screenshot screenshots`
+under the virtual display environment above. It captures `gomoku-configuration.png`,
+`gomoku-placement.png` (paused placement), and `gomoku-result.png` (completed
+plain Minimax versus alpha-beta at depth one).

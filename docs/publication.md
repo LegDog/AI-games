@@ -85,3 +85,6 @@ Pentago uses executable `pentago` and desktop ID `io.github.aigames.Pentago`.
 Its quadrant board and SVG icon are original vector artwork. The README links
 the rules booklet; no source illustrations, opening books, or solved positions
 are redistributed. GUI screenshots are captured from the application.
+
+Go-Moku uses executable `gomoku` and desktop ID `io.github.aigames.Gomoku`.
+It has an original SVG icon and a freestyle 15×15 engine.

@@ -24,6 +24,7 @@ python3 scripts/test-tavli-tournament.py
 python3 scripts/test-sokoban-runner.py
 python3 scripts/test-go-tournament.py
 python3 scripts/test-pentago-tournament.py
+python3 scripts/test-gomoku-tournament.py
 python3 scripts/generate-pentalpha-crossed-circle-board.py --check
 python3 scripts/generate-heptalpha-board.py --check
 python3 scripts/test-audit-history.py
@@ -39,7 +40,7 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a dbus-run-session --
 
 Ollama protocol tests use a mock service; no model download is required. Local
 HTTP tests may skip when socket creation is blocked. Check the test log for
-skips before claiming full validation. CI runs all twelve apps and the GUI tests on
+skips before claiming full validation. CI runs all thirteen apps and the GUI tests on
 Ubuntu with a virtual display.
 
 ## Games and algorithms
@@ -127,3 +128,9 @@ requests. `tools/ollama-view.c` copies events to a main-context idle queue, owns
 no borrowed app-state pointers, and discards stale generations on reset/undo.
 Hex builds the shared extraction and viewer/clipboard/contrast tests; every
 app's mock HTTP lifecycle test verifies that its actual transcript receives text.
+
+Go-Moku uses a 225-point cell array and one-coordinate moves, with freestyle
+five-or-more wins and no forbidden moves. Plain Minimax and alpha-beta explore
+all empty intersections using identical evaluation and full root windows. The
+engine tests include an independent game replay and exhaustive search reference;
+`test-gomoku-tournament.py` independently checks exported CSV games.

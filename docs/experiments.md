@@ -120,3 +120,12 @@ quadrant A; `e1:win` is an immediate placement win without rotation. With time
 limits disabled, repeated seeds reproduce fields other than elapsed time.
 `python3 scripts/test-pentago-tournament.py` independently replays coordinates,
 rotations, placement wins, and post-rotation outcomes. See [Pentago](../pentago/README.md).
+
+## Go-Moku
+
+`gomoku/build/tournament --games=4 --seed=10 --first=minimax --second=alpha-beta --depth-first=1 --depth-second=1 --time-first=0 --time-second=0`
+compares both searches at depth one. Use separate depth/time/memory options per
+side and `--node-limit` for deterministic bounded comparisons. Both searches
+consider every empty intersection. `python3 scripts/test-gomoku-tournament.py`
+independently replays exported games and checks reproducibility and limits.
+See [Go-Moku](../gomoku/README.md).
