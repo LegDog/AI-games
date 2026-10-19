@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <adwaita.h>
+#include "../../tools/ui-panels.h"
+#include "../../tools/ollama-view.h"
 #include <math.h>
 #include <string.h>
 #include "game.h"
@@ -101,6 +103,7 @@ static void stop_progress(App *app)
 
 static void cancel_turn(App *app)
 {
+    ollama_view_invalidate(GTK_WINDOW(app->window));
     cancel_timer(app);
     stop_progress(app);
     app->generation++;
@@ -376,6 +379,7 @@ static void start_search(App *app)
     job->chosen = -1;
     app->job = job;
     app->search_cancel = g_cancellable_new();
+    if(job->player.kind==PLAYER_OLLAMA)ollama_view_bind(GTK_WINDOW(app->window),app->search_cancel,job->game.turn==1?_("First player"):_("Second player"),job->game.moves+1,job->player.model);
     app->task = g_task_new(NULL, app->search_cancel, turn_completed, app);
     g_task_set_task_data(app->task, job, turn_job_free);
     g_task_set_return_on_cancel(app->task, FALSE);
@@ -396,6 +400,7 @@ static void schedule_turn(App *app)
 
 static void start_game(App *app)
 {
+    ollama_view_clear(GTK_WINDOW(app->window));
     if (app->closing) return;
     cancel_turn(app);
     game_init(&app->game);
@@ -404,6 +409,7 @@ static void start_game(App *app)
     gtk_stack_set_visible_child_name(GTK_STACK(app->stack), "game");
     gtk_widget_queue_draw(app->board);
     gtk_widget_grab_focus(app->board);
+    ollama_view_begin(GTK_WINDOW(app->window));
     schedule_turn(app);
 }
 
@@ -445,6 +451,7 @@ static void controller_changed(GObject *object, GParamSpec *pspec, gpointer data
 
 static void configure_clicked(GtkButton *button, gpointer data)
 {
+    ollama_view_clear(GTK_WINDOW(((App *)data)->window));
     (void) button;
     App *app = data;
     cancel_turn(app);
@@ -802,6 +809,7 @@ static GtkWidget *make_configuration(App *app)
 static GtkWidget *make_game(App *app)
 {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    GtkWidget *messages = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     GtkWidget *controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_widget_set_margin_start(controls, 12);
     gtk_widget_set_margin_end(controls, 12);
@@ -813,7 +821,9 @@ static GtkWidget *make_game(App *app)
     GtkWidget *configure = ui_button("New configuration");
     g_signal_connect(configure, "clicked", G_CALLBACK(configure_clicked), app);
     gtk_box_append(GTK_BOX(controls), configure);
-    gtk_box_append(GTK_BOX(box), controls);
+    gtk_label_set_selectable(GTK_LABEL(app->status), TRUE);
+    gtk_box_append(GTK_BOX(messages), controls);
+    gtk_box_append(GTK_BOX(box), ui_fixed_text_panel(messages, 120));
 
     GtkWidget *delay_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_widget_set_margin_start(delay_box, 12);
@@ -842,9 +852,11 @@ static GtkWidget *make_game(App *app)
     g_signal_connect(retry_turn, "clicked", G_CALLBACK(retry_ollama), app);
     gtk_box_append(GTK_BOX(app->turn_error_box), retry_turn);
     gtk_widget_set_visible(app->turn_error_box, FALSE);
-    gtk_box_append(GTK_BOX(box), app->turn_error_box);
+    gtk_label_set_selectable(GTK_LABEL(app->turn_error_label), TRUE);
+    gtk_box_append(GTK_BOX(messages), app->turn_error_box);
 
     app->board = gtk_drawing_area_new();
+    gtk_widget_set_size_request(app->board, 420, 360);
     gtk_widget_set_hexpand(app->board, TRUE);
     gtk_widget_set_vexpand(app->board, TRUE);
     gtk_widget_set_focusable(app->board, TRUE);
@@ -922,6 +934,8 @@ static void language_changed(GObject *object, GParamSpec *pspec, gpointer data)
         g_printerr(_("Could not save language preference: %s\n"), error->message);
         g_clear_error(&error);
     }
+
+    ollama_view_retranslate(GTK_WINDOW(app->window));
 }
 
 static void activate(GtkApplication *application, gpointer data)
@@ -959,7 +973,8 @@ static void activate(GtkApplication *application, gpointer data)
     g_signal_connect(retry, "clicked", G_CALLBACK(retry_save), app);
     gtk_box_append(GTK_BOX(app->error_box), retry);
     gtk_widget_set_visible(app->error_box, FALSE);
-    gtk_box_append(GTK_BOX(root), app->error_box);
+    gtk_label_set_selectable(GTK_LABEL(app->error_label), TRUE);
+    gtk_box_append(GTK_BOX(root), ui_fixed_text_panel(app->error_box, 60));
 
     app->stack = gtk_stack_new();
     gtk_widget_set_vexpand(app->stack, TRUE);
@@ -975,6 +990,8 @@ static void activate(GtkApplication *application, gpointer data)
     gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE);
     g_signal_connect(keys, "key-pressed", G_CALLBACK(key_pressed), app);
     gtk_widget_add_controller(GTK_WIDGET(app->window), keys);
+
+    adw_header_bar_pack_start(ADW_HEADER_BAR(header),ollama_view_install(GTK_WINDOW(app->window),GTK_WIDGET(app->controllers[0]),GTK_WIDGET(app->controllers[1]),PLAYER_OLLAMA,i18n_translate));
     gtk_window_present(app->window);
 }
 

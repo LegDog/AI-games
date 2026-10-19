@@ -5,6 +5,8 @@
 #include "ollama.h"
 #include "search.h"
 #include <adwaita.h>
+#include "../../tools/ui-panels.h"
+#include "../../tools/ollama-view.h"
 #include <math.h>
 #include <string.h>
 typedef struct App App;
@@ -119,6 +121,7 @@ static void terminal_check(App *a) {
     record(a, game_solved(&a->game) ? "solved" : "deadlocked");
 }
 static void stop_work(App *a) {
+    ollama_view_invalidate(GTK_WINDOW(a->window));
   a->generation++;
   if (a->cancel)
     g_cancellable_cancel(a->cancel);
@@ -132,6 +135,7 @@ static void stop_work(App *a) {
   a->plan_index = 0;
 }
 static void reset_game(App *a) {
+    ollama_view_clear(GTK_WINDOW(a->window));
   stop_work(a);
   unsigned index = gtk_drop_down_get_selected(GTK_DROP_DOWN(a->level));
   if (index >= a->pack->len)
@@ -299,6 +303,7 @@ static void launch(App *a, gboolean list) {
   j->model = g_strdup(item ? gtk_string_object_get_string(item) : "");
   j->thinking = gtk_check_button_get_active(GTK_CHECK_BUTTON(a->thinking));
   a->cancel = g_cancellable_new();
+  if(!list && j->kind==PLAYER_OLLAMA)ollama_view_bind(GTK_WINDOW(a->window),a->cancel,_("Player"),a->sequence->len+1,j->model);
   g_string_append_printf(a->history,
                          "Decision seed: %u; controller: %s; limits: %.3f s / "
                          "%zu bytes; pruning: %s.\n\n",
@@ -397,6 +402,7 @@ static void begin_clicked(GtkButton *button, gpointer data) {
     a->playing = FALSE;
     set_message(a, _("Select an Ollama model first."));
   }
+  if(a->playing)ollama_view_begin(GTK_WINDOW(a->window));
   terminal_check(a);
   if (a->playing && a->kind == PLAYER_HUMAN)
     gtk_widget_grab_focus(a->board);
@@ -426,17 +432,19 @@ static void undo_clicked(GtkButton *button, gpointer data) {
   a->terminal = a->recorded = a->failed = FALSE;
   set_message(a, NULL);
   terminal_check(a);
-  update(a);
+  ollama_view_undo(GTK_WINDOW(a->window));update(a);
 }
 static void restart_clicked(GtkButton *button, gpointer data) {
   (void)button;
   App *a = data;
   reset_game(a);
+  ollama_view_begin(GTK_WINDOW(a->window));
   terminal_check(a);
   update(a);
   schedule(a);
 }
 static void configure_clicked(GtkButton *button, gpointer data) {
+    ollama_view_clear(GTK_WINDOW(((App *)data)->window));
   (void)button;
   App *a = data;
   stop_work(a);
@@ -551,6 +559,8 @@ static void language_changed(GObject *object, GParamSpec *spec, gpointer data) {
     g_clear_error(&error);
   }
   update(a);
+
+    ollama_view_retranslate(GTK_WINDOW(a->window));
 }
 static gboolean key_pressed(GtkEventControllerKey *controller, guint key,
                             guint code, GdkModifierType state, gpointer data) {
@@ -832,7 +842,8 @@ static App *create_app(GtkApplication *application) {
   g_signal_connect(a->window, "close-request", G_CALLBACK(close_requested), a);
   GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
   adw_application_window_set_content(ADW_APPLICATION_WINDOW(a->window), root);
-  gtk_box_append(GTK_BOX(root), adw_header_bar_new());
+  GtkWidget *header=adw_header_bar_new();
+  gtk_box_append(GTK_BOX(root), header);
   GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_widget_set_vexpand(content, TRUE);
   gtk_box_append(GTK_BOX(root), content);
@@ -851,11 +862,10 @@ static App *create_app(GtkApplication *application) {
   gtk_label_set_wrap(GTK_LABEL(a->status), TRUE);
   gtk_label_set_selectable(GTK_LABEL(a->status), TRUE);
   gtk_widget_set_margin_bottom(a->status, 12);
-  gtk_box_append(GTK_BOX(left), a->status);
   a->error = gtk_label_new(NULL);
   gtk_label_set_wrap(GTK_LABEL(a->error), TRUE);
   gtk_widget_add_css_class(a->error, "error");
-  gtk_box_append(GTK_BOX(left), a->error);
+  gtk_box_append(GTK_BOX(left), ui_message_panel(a->status, a->error));
   GtkWidget *scroll = gtk_scrolled_window_new();
   gtk_widget_set_size_request(scroll, 300, -1);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER,
@@ -929,6 +939,8 @@ static App *create_app(GtkApplication *application) {
                    G_CALLBACK(controller_changed), a);
   install_levels(a, levels_builtin());
   a->tick = g_timeout_add(16, tick, a);
+
+  adw_header_bar_pack_end(ADW_HEADER_BAR(header),ollama_view_install(GTK_WINDOW(a->window),a->controller,NULL,PLAYER_OLLAMA,i18n_translate));
   return a;
 }
 #ifndef SOKOBAN_TEST

@@ -80,3 +80,8 @@ desktop ID `io.github.aigames.Go`, and repository selector `GAME=go`. Its board
 and SVG icon are original drawings. No external engine, trained network, opening
 book, or source artwork is redistributed. The README identifies the exact
 Chinese-style rules and played-out capture convention.
+
+Pentago uses executable `pentago` and desktop ID `io.github.aigames.Pentago`.
+Its quadrant board and SVG icon are original vector artwork. The README links
+the rules booklet; no source illustrations, opening books, or solved positions
+are redistributed. GUI screenshots are captured from the application.

@@ -102,3 +102,21 @@ neutral points, MCTS cutoffs and limits. Incomplete games have no winner; their
 area fields are estimates of the stopped board. `python3 scripts/test-go-tournament.py`
 independently verifies captures, repetition legality and scoring.
 See [Go rules and algorithms](../go/README.md).
+
+## Pentago
+
+`pentago/build/tournament --games=10 --seed=0 --first=minimax --second=alpha-beta
+--depth-first=2 --depth-second=2 --time-first=0 --time-second=0` compares plain
+Minimax and alpha-beta using identical evaluation, ordering, and complete-turn
+depths. Repeat with controllers swapped. Controllers also include `random` and
+`heuristic`. Weak/strong GUI presets request depths 1/3; custom depths are 1–6.
+Time and memory budgets are independent (`--time-first/second`,
+`--memory-first/second`); `--node-limit` supplies a deterministic work cap.
+
+CSV includes settings, complete placement/rotation actions, draws/incomplete
+outcomes, aggregate nodes/leaves/cutoffs, last completed depths/statuses,
+limited-decision counts, timing, and memory. `c4:A:cw` places at c4 before turning
+quadrant A; `e1:win` is an immediate placement win without rotation. With time
+limits disabled, repeated seeds reproduce fields other than elapsed time.
+`python3 scripts/test-pentago-tournament.py` independently replays coordinates,
+rotations, placement wins, and post-rotation outcomes. See [Pentago](../pentago/README.md).

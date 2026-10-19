@@ -5,7 +5,7 @@ playing games. We may add more games and algorithms soon. Contributions are
 welcome—feel free to contribute new games, algorithms, experiments, or improvements.
 English is the primary language for project documentation and contributions.
 
-The repository currently contains eleven independent GNOME applications written
+The repository currently contains twelve independent GNOME applications written
 in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 
 - [Tic-Tac-Toe](tic-tac-toe/README.md): a 3×3 board, mouse and numeric keypad controls.
@@ -18,11 +18,12 @@ in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 - [AI Games: Sokoban](sokoban/README.md): eight original box-pushing levels, XSB import, minimum-push A*, Greedy Best-first, deadlock pruning, Random, and pure Ollama.
 - [AI Games: Go](go/README.md): 9×9, Chinese-style area scoring, positional superko, captures, configurable komi, Heuristic, MCTS, and pure Ollama.
 - [AI Games: Hex](hex/README.md): connection game on 3×3, 5×5, or 7×7 boards, optional opening swap, connection heuristic, Minimax, MCTS, and pure Ollama.
+- [AI Games: Pentago](pentago/README.md): rotating 6×6 board with Human, Random, Heuristic, plain Minimax, alpha-beta, pure Ollama, and weak/strong search presets.
 - [AI Games: Reversi](reversi/README.md): standard 8×8 disc-flipping game with Human, Random, Positional, Minimax, MCTS, and pure Ollama players.
 
 Each directory contains its own engine, interface, tests, Makefile, Meson
 project, installation resources, and license copy. Within this checkout, each application can be
-built and used independently. Shared development drivers live in `tools/`.
+built and used independently. Shared interface helpers and development drivers live in `tools/`.
 
 ## Contributing and comparing algorithms
 
@@ -65,6 +66,7 @@ make GAME=hex run                     # launch Hex
 make GAME=tavli run                   # launch Tavli
 make GAME=sokoban run                 # launch Sokoban
 make GAME=go run                      # launch Go (go-game)
+make GAME=pentago run                 # launch Pentago
 make GAME=four-in-a-row                # build only Four in a Row
 make test                         # test all engines without a display
 make GAME=four-in-a-row test           # test one engine
@@ -171,6 +173,7 @@ Default output files are separate even when multiple games run in the same direc
 | Tavli | `tavli-history.md` | `tavli-ollama.log` | `tavli-ollama-error.log` |
 | Sokoban | `sokoban-history.md` | `sokoban-ollama.log` | `sokoban-ollama-error.log` |
 | Go | `go-history.md` | `go-ollama.log` | `go-ollama-error.log` |
+| Pentago | `pentago-history.md` | `pentago-ollama.log` | `pentago-ollama-error.log` |
 
 Each JSON log entry also includes its game ID, and each saved game history
 heading includes its game name. Existing files keep their original names and
@@ -178,3 +181,33 @@ contents; new writes use the defaults above. Explicit log-path environment
 variables still override the default filenames.
 
 Peg Solitaire includes independent rules and controls in its [README](peg-solitaire/README.md), a bounded runtime solver, and `peg-solitaire-history.md` decision histories. Its Ollama logs use the `peg-solitaire` filename prefix.
+
+Pentago compares plain Minimax and alpha-beta at equal depth, with independent
+weak/strong presets and budgets. Its complete turns include placement and
+quadrant rotation; histories retain wins and draws. See [Pentago](pentago/README.md)
+for controls, rules, scoring, and reproducible experiments.
+
+Status and error messages use fixed-height panels with automatic vertical
+scrollbars in every game. Rules beneath boards also use fixed-height scrolling
+panels, so longer messages and translations do not resize or shift the board.
+
+## Ollama conversation window
+
+All games open a separate **Ollama messages** window when a game with an Ollama
+player begins. Reopen it from the header button after closing it. The text-only
+transcript distinguishes **Sent** (blue), **Thinking** (gold), **Received**
+(green), and errors (red), with high-contrast colors and model/player/turn labels.
+It shows only thinking actually returned by the model. Existing non-streaming
+requests display sent prompts immediately and thinking/replies upon receipt.
+
+Text is wrapped, scrollable, selectable, and copyable with Ctrl+A/Ctrl+C or
+**Copy all**. **Follow latest** initially follows incoming messages; scrolling
+up or selecting text suspends it. Re-enable it to return to the latest message.
+Closing hides the window without losing the current transcript. Begin, Restart,
+and New configuration clear it; Undo adds a marker and discards stale responses.
+The main board keeps its allocation when the secondary window opens or updates.
+The transcript stays in memory for the current game; Ollama log files and
+communication behavior remain unchanged.
+
+Only actual model requests appear in the transcript. Local opening shortcuts
+in the earlier games keep their existing behavior and do not create messages.

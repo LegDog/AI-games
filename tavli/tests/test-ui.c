@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui-fixture.h"
+#include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-integration.h"
 #include "ollama-server.h"
 static void geometry(void)
 {
@@ -78,11 +80,16 @@ static void ollama_lifecycle(App *app,gconstpointer data)
     g_ptr_array_set_size(fixture.paused,0);
     fixture.delayed=FALSE;fixture.auto_move=FALSE;fixture.body="{\"done\":true,\"response\":\"bad\"}";new_configuration(NULL,app);
     for(int p=0;p<2;p++)gtk_drop_down_set_selected(GTK_DROP_DOWN(app->controllers[p]),PLAYER_OLLAMA);
-    begin_clicked(NULL,app);settle_worker(app);g_assert_true(app->failed);g_assert_cmpuint(app->game.turns,==,0);teardown(&fixture,NULL);
+    begin_clicked(NULL,app);settle_worker(app);g_assert_true(app->failed);g_assert_cmpuint(app->game.turns,==,0);ui_assert_ollama_transcript(app->board);teardown(&fixture,NULL);
+}
+static void stable_text_panels(App *app,gconstpointer data)
+{
+    (void)data;ui_assert_stable_text_panels(app->board);
 }
 int main(int argc,char **argv)
 {
     g_setenv("OLLAMA_LOG_FILE","/dev/null",TRUE);g_setenv("OLLAMA_ERROR_LOG_FILE","/dev/null",TRUE);g_test_init(&argc,&argv,NULL);gtk_init();adw_init();test_directory=g_dir_make_tmp("tavli-ui-XXXXXX",NULL);g_assert_nonnull(test_directory);g_autofree char *old=g_get_current_dir();g_chdir(test_directory);
+    g_test_add("/ui/fixed-text-panels",App,NULL,ui_setup,stable_text_panels,ui_teardown);
     g_test_add_func("/ui/stack-route-geometry",geometry);
     g_test_add("/ui/atomic-undo-dice",App,NULL,ui_setup,animation_undo,ui_teardown);g_test_add("/ui/cube-next-game",App,NULL,ui_setup,cube_match,ui_teardown);g_test_add("/ui/save-retry",App,NULL,ui_setup,save_retry,ui_teardown);g_test_add("/ui/bots-pause-cancel",App,NULL,ui_setup,bots_pause_cancel,ui_teardown);g_test_add("/ui/retry-language",App,NULL,ui_setup,retry_language,ui_teardown);g_test_add("/ui/ollama-stale-invalid",App,NULL,ui_setup,ollama_lifecycle,ui_teardown);
     int result=g_test_run();g_remove(GAME_HISTORY_FILE);g_remove("settings.ini");g_chdir(old);g_rmdir(test_directory);g_free(test_directory);return result;

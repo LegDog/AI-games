@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui-fixture.h"
+#include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-integration.h"
 #include <libsoup/soup.h>
 static void human(void) {
   App *a = fixture();
@@ -185,9 +187,16 @@ static void ollama_lifecycle(void) {
   settle(a);
   g_assert_true(a->failed);
   g_assert_cmpuint(a->game.history->len, ==, 1);
+  ui_assert_ollama_transcript(a->board);
   dispose(a);
   soup_server_disconnect(server);
   g_object_unref(server);
+}
+static void stable_text_panels(void)
+{
+    App *a=fixture();
+    if(a->tick){g_source_remove(a->tick);a->tick=0;}
+    ui_assert_stable_text_panels(a->board);dispose(a);
 }
 int main(int argc, char **argv) {
   g_setenv("OLLAMA_LOG_FILE", "/dev/null", TRUE);
@@ -198,6 +207,7 @@ int main(int argc, char **argv) {
   g_autofree char *directory = g_dir_make_tmp("go-ui-XXXXXX", NULL);
   g_autofree char *old = g_get_current_dir();
   g_chdir(directory);
+  g_test_add_func("/ui/fixed-text-panels", stable_text_panels);
   g_test_add_func("/ui/human-pass-undo", human);
   g_test_add_func("/ui/capture-animation", captures_animation);
   g_test_add_func("/ui/bots-pause-cancel-retry", bots);

@@ -75,3 +75,28 @@ After `make GAME=go test-ui`, run `go/build-ui/screenshot screenshots` under
 the virtual display environment above. It captures `go-setup.png`,
 `go-capture.png` (a paused atomic capture), and `go-result.png` (a scored board
 with territory overlay). The helper isolates histories in a temporary directory.
+
+## Pentago
+
+After `make GAME=pentago test-ui`, run
+`pentago/build-ui/screenshot screenshots` under the virtual display environment
+above. It captures `pentago-configuration.png`, `pentago-rotation.png` (a paused
+atomic quadrant rotation), and `pentago-result.png` (a runtime plain/alpha-beta
+game). Status/errors and rules occupy fixed scrolling panels so message changes
+do not resize the board. Review quadrant labels, both marble colors, coordinate
+labels, rotation controls, and highlighted winning lines.
+
+## Ollama conversation viewer
+
+After `make GAME=hex test-ui`, capture the shared viewer using mocked messages:
+
+```sh
+GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none \
+  OLLAMA_VIEW_SCREENSHOT="$PWD/screenshots/ollama-messages.png" \
+  xvfb-run -a dbus-run-session -- hex/build-ui/test-ollama-view \
+  -p /ollama-view/lifecycle-worker-copy-stale
+```
+
+This captures the real conversation widgets with test prompts/responses, without
+a running model or private game data. Review the blue Sent, gold Thinking,
+green Received text, readable formatting, scrolling, and copy/follow controls.

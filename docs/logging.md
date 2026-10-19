@@ -47,3 +47,24 @@ Only move files that exist, and run these commands in the relevant working
 directory. Remove old archives when no longer needed. Both default log names
 and their dotted archive names are ignored by Git. A custom path is your
 responsibility; keep it outside the repository or add a local ignore rule.
+
+Pentago uses `pentago-history.md`, `pentago-ollama.log`, and
+`pentago-ollama-error.log`. Histories include wins and draws, complete compound
+moves, seeds, controller settings, heuristic components, and search statistics.
+Its pure Ollama prompts/responses follow the same privacy and rotation guidance.
+
+## On-screen Ollama messages
+
+The separate conversation window is a read-only, in-memory view of the current
+game's decision requests and responses. It does not read, tail, replace, or add
+entries to the log files. System instructions and prompts are decoded for display;
+JSON decisions/schemas are indented; native thinking and explicit `<think>` text
+are separated from replies. Dedicated Cogito analysis responses appear as Thinking.
+Model discovery/capability metadata remains in the logs and is omitted from the
+conversation. Failed and invalid responses are visible alongside readable errors.
+
+The original raw payloads, log schema, identifiers, paths, environment overrides,
+rotation, and logging failure behavior are preserved. No additional requests are
+made. Existing non-streaming responses arrive as complete messages. Clearing or
+closing the on-screen transcript does not delete or change log files. As with
+logs, review transcript contents before sharing copied text or screenshots.

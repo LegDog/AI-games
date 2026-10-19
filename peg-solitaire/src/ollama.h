@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "../../tools/ollama-events.h"
 #include <gio/gio.h>
 #include "search.h"
 #define OLLAMA_DEFAULT_LOG_FILE GAME_ID "-ollama.log"

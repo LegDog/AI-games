@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=AI Games: Pentago
+Name[pt]=Jogos de IA: Pentago
+Name[es]=Juegos de IA: Pentago
+Name[it]=Giochi IA: Pentago
+Comment=Compare Minimax and alpha-beta on a rotating marble board
+Comment[pt]=Compare Minimax e alfa-beta em um tabuleiro giratório
+Comment[es]=Compara Minimax y alfa-beta en un tablero giratorio
+Comment[it]=Confronta Minimax e alfa-beta su un tabellone rotante
+Exec=pentago
+Icon=io.github.aigames.Pentago
+Terminal=false
+Type=Application
+Categories=Game;BoardGame;
+Keywords=Pentago;Minimax;AI;marbles;
+StartupNotify=true

@@ -190,6 +190,7 @@ static JsonObject *request_json(const char *base, const char *path, JsonObject *
     GSource *timer = g_timeout_source_new(MAX(timeout_ms, 1));
     g_source_set_callback(timer, deadline, &request, NULL);
     g_source_attach(timer, context);
+    ollama_event_request(cancel,id,path,body);
     soup_session_send_and_read_async(session, message, G_PRIORITY_DEFAULT, request.cancel, received, &request);
     g_main_loop_run(request.loop);
     g_source_destroy(timer);
@@ -202,6 +203,7 @@ static JsonObject *request_json(const char *base, const char *path, JsonObject *
     g_object_unref(request.cancel);
     /* Record the body before HTTP-status or JSON validation, including model
      * thinking fields, inline <think> text and service error responses. */
+    ollama_event_response(cancel,id,path,body && !json_object_has_member(body,"format"),request.bytes);
     if (request.bytes)
         log_exchange(id, "response", method, url, message, request.bytes, started, NULL);
     if (request.timed_out) {
@@ -524,7 +526,10 @@ gboolean ollama_choose_with_options(const Game *game,const char *model,const cha
 done:
     result->elapsed_us=g_get_monotonic_time()-started;
     if(!ok)log_operation_failure(url,started,game,result,failure);
-    g_private_set(&operation_trace,previous);if(failure)g_propagate_error(error,failure);return ok;
+    g_private_set(&operation_trace,previous);
+    if(!ok)ollama_event_error(cancel,failure);
+    if(failure)g_propagate_error(error,failure);
+    return ok;
 }
 void ollama_record(GString *history,const char *model,const OllamaResult *result)
 {

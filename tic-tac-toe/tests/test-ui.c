@@ -4,6 +4,8 @@
 #include "../src/main.c"
 #undef main
 #include "ollama-server.h"
+#include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-integration.h"
 
 static void drain_events(void)
 {
@@ -62,6 +64,8 @@ static void test_controls(void)
         g_assert_false(gtk_widget_get_visible(app.depth_rows[i]));
         g_assert_cmpfloat(gtk_range_get_value(GTK_RANGE(app.depth_scales[i])), ==, DEFAULT_MINIMAX_DEPTH);
     }
+    select_players(&app, PLAYER_HUMAN, PLAYER_HUMAN);
+    ui_assert_stable_text_panels(app.board);
     for (unsigned first = 0; first < 3; first++) {
         for (unsigned second = 0; second < 3; second++) {
             select_players(&app, first, second);
@@ -375,6 +379,7 @@ static void test_ollama_controls(void)
     play_cell(&app, app.game.cells[0][0] ? 1 : 0);
     wait_job(&app);
     g_assert_true(app.turn_failed);
+    ui_assert_ollama_transcript(app.board);
     g_assert_false(app.ready);
     g_assert_cmpuint(app.game.moves, ==, 2);
     g_assert_true(gtk_widget_get_visible(app.turn_error_box));

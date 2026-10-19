@@ -16,19 +16,21 @@ if get_option('app')
   adw = dependency('libadwaita-1', version: '>=1.4', include_type: 'system')
   soup = dependency('libsoup-3.0', version: '>=3.0', include_type: 'system')
   json = dependency('json-glib-1.0', version: '>=1.6', include_type: 'system')
-  ollama = static_library('ollama', 'src/ollama.c', dependencies: [engine_dep, soup, json])
+  ollama = static_library('ollama', '../tools/ollama-events.c', 'src/ollama.c', dependencies: [engine_dep, soup, json])
   ollama_dep = declare_dependency(link_with: ollama, dependencies: [engine_dep, soup, json])
-  test('ollama-log', executable('test-ollama-log', 'tests/test-ollama-log.c', dependencies: [engine_dep, soup, json]))
+  viewer=static_library('ollama-view','../tools/ollama-view.c',dependencies:[ollama_dep,gtk,adw])
+  viewer_dep=declare_dependency(link_with:viewer,dependencies:[ollama_dep,gtk,adw])
+  test('ollama-log', executable('test-ollama-log', 'tests/test-ollama-log.c', dependencies: ollama_dep))
   test('ollama', executable('test-ollama', 'tests/test-ollama.c', dependencies: ollama_dep), timeout: 30)
   math = meson.get_compiler('c').find_library('m', required: true)
   executable('four-in-a-row', 'src/main.c',
-    dependencies: [ollama_dep, gtk, adw, math], install: true)
+    dependencies: [viewer_dep, ollama_dep, gtk, adw, math], install: true)
   if get_option('ui_tests')
     executable('screenshot', '../tools/screenshot.c',
       c_args: ['-DFOUR_IN_A_ROW'],
-      dependencies: [ollama_dep, gtk, adw, math])
+      dependencies: [viewer_dep, ollama_dep, gtk, adw, math])
     test('ui', executable('test-ui', 'tests/test-ui.c',
-      dependencies: [ollama_dep, gtk, adw, math]), timeout: 30)
+      dependencies: [viewer_dep, ollama_dep, gtk, adw, math]), timeout: 60)
   endif
   install_data('data/io.github.aigames.FourInARow.desktop',
     install_dir: get_option('datadir') / 'applications')

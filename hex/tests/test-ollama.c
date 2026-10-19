@@ -30,13 +30,22 @@ static void run(Call *call)
     while (!g_atomic_int_get((gint *) &call->finished)) g_main_context_iteration(NULL, TRUE);
     g_thread_join(thread);
 }
+typedef struct { unsigned counts[4]; } MessageCounts;
+static void observed_message(OllamaMessageKind kind,const char *id,const char *text,gpointer data)
+{
+    (void)id;g_assert_nonnull(text);MessageCounts *counts=data;counts->counts[kind]++;
+}
 static void protocol(Fixture *f, gconstpointer data)
 {
     (void) data; if (!f->url) return;
     f->auto_move = TRUE;
-    Call call = {.fixture = f}; game_init(&call.game);
+    MessageCounts counts={0};
+    Call call = {.fixture = f,.cancel=g_cancellable_new()}; game_init(&call.game);
+    ollama_observe(call.cancel,observed_message,&counts,NULL);
     run(&call); g_assert_true(call.ok); g_assert_no_error(call.error);
     g_assert_true((game_legal_moves(&call.game)&SQUARE_BIT(call.result.move))!=0);
+    g_assert_cmpuint(counts.counts[OLLAMA_SENT],==,1);g_assert_cmpuint(counts.counts[OLLAMA_RECEIVED],==,1);
+    g_assert_false(json_object_get_boolean_member(f->request,"stream"));
     const char *prompt = json_object_get_string_member(f->request, "prompt");
     g_assert_nonnull(strstr(prompt, "No search assistance"));
     g_assert_null(strstr(prompt, "greatest achievable"));
@@ -52,9 +61,11 @@ static void protocol(Fixture *f, gconstpointer data)
     unsigned generations = f->generate_calls;
     run(&call); g_assert_true(call.ok); g_assert_cmpuint(f->generate_calls, ==, generations + 2);
     g_assert_cmpint(call.result.reasoning, ==, OLLAMA_REASONING_COGITO);
+    g_assert_cmpuint(counts.counts[OLLAMA_THINKING],>,0);
     game_init_variant(&call.game,3,FALSE);call.game.red=SQUARE_BIT(0)|SQUARE_BIT(7)|SQUARE_BIT(14);
     generations=f->generate_calls;run(&call);g_assert_false(call.ok);g_assert_error(call.error,G_IO_ERROR,G_IO_ERROR_INVALID_ARGUMENT);
     g_assert_cmpuint(f->generate_calls,==,generations);g_clear_error(&call.error);
+    g_assert_cmpuint(counts.counts[OLLAMA_FAILURE],==,1);g_object_unref(call.cancel);
 
 }
 static void invalid(Fixture *f, gconstpointer data)

@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := all
 
-GAMES := tic-tac-toe four-in-a-row pentalpha heptalpha peg-solitaire pentalpha-crossed-circle reversi hex tavli sokoban go
+GAMES := tic-tac-toe four-in-a-row pentalpha heptalpha peg-solitaire pentalpha-crossed-circle reversi hex tavli sokoban go pentago
 ifdef GAME
 ifeq ($(filter $(GAME),$(GAMES)),)
-$(error GAME must be tic-tac-toe, four-in-a-row, pentalpha, heptalpha, peg-solitaire, pentalpha-crossed-circle, reversi, hex, tavli, sokoban, or go)
+$(error GAME must be tic-tac-toe, four-in-a-row, pentalpha, heptalpha, peg-solitaire, pentalpha-crossed-circle, reversi, hex, tavli, sokoban, go, or pentago)
 endif
 SELECTED_GAMES := $(GAME)
 else
@@ -35,5 +35,6 @@ help:
 		'make GAME=tavli run: launch Tavli' \
 		'make GAME=sokoban run: launch Sokoban' \
 		'make GAME=go run: launch Go (go-game)' \
+		'make GAME=pentago run: launch Pentago' \
 		'make -C four-in-a-row help: individual project options' \
 		'Build variables (PREFIX, MESON_ARGS, etc.) are forwarded to each project.'

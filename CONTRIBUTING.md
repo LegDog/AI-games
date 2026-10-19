@@ -23,6 +23,7 @@ python3 scripts/test-hex-tournament.py
 python3 scripts/test-tavli-tournament.py
 python3 scripts/test-sokoban-runner.py
 python3 scripts/test-go-tournament.py
+python3 scripts/test-pentago-tournament.py
 python3 scripts/generate-pentalpha-crossed-circle-board.py --check
 python3 scripts/generate-heptalpha-board.py --check
 python3 scripts/test-audit-history.py
@@ -38,7 +39,7 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a dbus-run-session --
 
 Ollama protocol tests use a mock service; no model download is required. Local
 HTTP tests may skip when socket creation is blocked. Check the test log for
-skips before claiming full validation. CI runs all eleven apps and the GUI tests on
+skips before claiming full validation. CI runs all twelve apps and the GUI tests on
 Ubuntu with a virtual display.
 
 ## Games and algorithms
@@ -72,7 +73,7 @@ is not a general win rate or a proof of perfect play.
 
 ## Translations
 
-Update `src/i18n-catalog.inc` in all nine games. Columns are English, Portuguese,
+Update `src/i18n-catalog.inc` in all applications. Columns are English, Portuguese,
 Spanish, and Italian; preserve printf placeholders and their order. Keep the
 shared catalog/helper copies synchronized. Add GUI labels through the existing
 translation bindings so they change without resetting a game. `make test`
@@ -95,7 +96,7 @@ All contributions are provided under the repository's GPL-3.0-or-later license.
 Use `SPDX-License-Identifier: GPL-3.0-or-later` on new project source files.
 Avoid introducing code or assets without compatible licensing and attribution.
 
-Peg Solitaire uses `src/search.*` for bounded Backtracking and A* plans. Its tests independently enumerate triangular positions, replay CSV jumps, and verify search limits, certification, cancellation, and atomic animation. Keep all nine translation catalogs synchronized.
+Peg Solitaire uses `src/search.*` for bounded Backtracking and A* plans. Its tests independently enumerate triangular positions, replay CSV jumps, and verify search limits, certification, cancellation, and atomic animation. Keep all translation catalogs synchronized.
 
 Pentalfa Cruzado Circulado uses explicit lists for its 120 movements and 64-bit occupancy for 36 points. Its Search uses bounded iterative deepening and a symmetry-aware sparse cache. Only complete root iterations may be used for decisions or Ollama assistance. Keep the topology, SVG, and animation geometry synchronized with the board generator.
 
@@ -106,3 +107,23 @@ Reversi uses `src/search.*` for bounded iterative alpha-beta Minimax and UCT Mon
 Hex uses fixed-stride seven-bitboard rows, six-neighbor connectivity, and an optional pie-rule action (bit 63). Swap reflects and recolors the opening to keep controller colors fixed. Compare connection distances against independent replay; preserve no-draw termination, atomic placements/swap, bounded search, and stale-response cancellation.
 
 Tavli uses dynamic complete-turn enumeration and legal prefixes, not fixed move masks. Keep variant-specific rules, dice quotas, cube actor versus active player, and match transitions in the engine. Real dice must remain isolated from search RNGs. Its independent Python replay engine validates exported sessions; Expectiminimax is checked against 36 ordered rolls. Preserve draft undo without rerolls, atomic animations, and complete-decision retention under limits.
+
+Pentago uses explicit compound placement/rotation moves (up to 288 legal actions),
+not a 64-bit action mask. Immediate placement wins skip rotation; after rotation
+check both colors, including simultaneous-line draws. Keep plain Minimax and
+alpha-beta evaluation, move order, root windows, and seeded tie-breaking equal.
+Independent replay checks complete turns. Preserve atomic animation, provisional
+human placement, and fixed scrolling text panels that keep board size stable.
+
+Use `tools/ui-panels.h` for board-adjacent message and rules panels; keep the
+outer panel visible when its contents are empty or hidden. GUI tests use
+`tools/test-ui-panels.h` to verify board position and size through text overflow,
+scrolling, and message visibility changes in each application.
+
+Ollama clients expose an optional observer on each decision's `GCancellable`
+through `tools/ollama-events.h`. Attach it before starting the worker. Capture
+must not mutate payloads or logging, change model decisions, or add network
+requests. `tools/ollama-view.c` copies events to a main-context idle queue, owns
+no borrowed app-state pointers, and discards stale generations on reset/undo.
+Hex builds the shared extraction and viewer/clipboard/contrast tests; every
+app's mock HTTP lifecycle test verifies that its actual transcript receives text.

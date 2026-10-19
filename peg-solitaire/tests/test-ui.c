@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui-fixture.h"
+#include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-integration.h"
 #include "ollama-server.h"
 static unsigned human_jump(App *app)
 {
@@ -90,13 +92,18 @@ static void ollama_lifecycle(App *app,gconstpointer data)
     configure_clicked(NULL,app); gtk_drop_down_set_selected(GTK_DROP_DOWN(app->controller),PLAYER_OLLAMA);
     fixture.auto_move=FALSE; fixture.body="{\"done\":true,\"response\":\"bad move\"}";
     begin_clicked(NULL,app); settle_worker(app); g_assert_true(app->failed); g_assert_cmpuint(app->game.moves,==,0);
-    teardown(&fixture,NULL);
+    ui_assert_ollama_transcript(app->board);teardown(&fixture,NULL);
+}
+static void stable_text_panels(App *app,gconstpointer data)
+{
+    (void)data;ui_assert_stable_text_panels(app->board);
 }
 int main(int argc,char **argv)
 {
     g_setenv("OLLAMA_LOG_FILE","/dev/null",TRUE); g_setenv("OLLAMA_ERROR_LOG_FILE","/dev/null",TRUE);
     g_test_init(&argc,&argv,NULL); gtk_init(); adw_init(); GError *error=NULL;
     test_directory=g_dir_make_tmp("peg-ui-XXXXXX",&error); g_assert_no_error(error); g_autofree char *old=g_get_current_dir(); g_chdir(test_directory);
+    g_test_add("/ui/fixed-text-panels",App,NULL,ui_setup,stable_text_panels,ui_teardown);
     g_test_add("/ui/human-hop-capture-undo",App,NULL,ui_setup,human_animation,ui_teardown);
     g_test_add("/ui/plans-both-boards",App,NULL,ui_setup,automatic,ui_teardown);
     g_test_add("/ui/retry-language-cancellation",App,NULL,ui_setup,retry_and_translation,ui_teardown);

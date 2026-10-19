@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<rect x="4" y="4" width="120" height="120" rx="20" fill="#18232e"/>
+<rect x="12" y="12" width="50" height="50" rx="6" fill="#526a7c"/>
+<circle cx="21" cy="21" r="6" fill="#f4f4ed"/>
+<circle cx="37" cy="21" r="6" fill="#10151b"/>
+<circle cx="53" cy="21" r="6" fill="#344653"/>
+<circle cx="21" cy="37" r="6" fill="#10151b"/>
+<circle cx="37" cy="37" r="6" fill="#344653"/>
+<circle cx="53" cy="37" r="6" fill="#f4f4ed"/>
+<circle cx="21" cy="53" r="6" fill="#344653"/>
+<circle cx="37" cy="53" r="6" fill="#f4f4ed"/>
+<circle cx="53" cy="53" r="6" fill="#10151b"/>
+<rect x="66" y="12" width="50" height="50" rx="6" fill="#526a7c"/>
+<circle cx="75" cy="21" r="6" fill="#10151b"/>
+<circle cx="91" cy="21" r="6" fill="#344653"/>
+<circle cx="107" cy="21" r="6" fill="#f4f4ed"/>
+<circle cx="75" cy="37" r="6" fill="#344653"/>
+<circle cx="91" cy="37" r="6" fill="#f4f4ed"/>
+<circle cx="107" cy="37" r="6" fill="#10151b"/>
+<circle cx="75" cy="53" r="6" fill="#f4f4ed"/>
+<circle cx="91" cy="53" r="6" fill="#10151b"/>
+<circle cx="107" cy="53" r="6" fill="#344653"/>
+<rect x="12" y="66" width="50" height="50" rx="6" fill="#526a7c"/>
+<circle cx="21" cy="75" r="6" fill="#344653"/>
+<circle cx="37" cy="75" r="6" fill="#f4f4ed"/>
+<circle cx="53" cy="75" r="6" fill="#10151b"/>
+<circle cx="21" cy="91" r="6" fill="#f4f4ed"/>
+<circle cx="37" cy="91" r="6" fill="#10151b"/>
+<circle cx="53" cy="91" r="6" fill="#344653"/>
+<circle cx="21" cy="107" r="6" fill="#10151b"/>
+<circle cx="37" cy="107" r="6" fill="#344653"/>
+<circle cx="53" cy="107" r="6" fill="#f4f4ed"/>
+<rect x="66" y="66" width="50" height="50" rx="6" fill="#526a7c"/>
+<circle cx="75" cy="75" r="6" fill="#f4f4ed"/>
+<circle cx="91" cy="75" r="6" fill="#10151b"/>
+<circle cx="107" cy="75" r="6" fill="#344653"/>
+<circle cx="75" cy="91" r="6" fill="#10151b"/>
+<circle cx="91" cy="91" r="6" fill="#344653"/>
+<circle cx="107" cy="91" r="6" fill="#f4f4ed"/>
+<circle cx="75" cy="107" r="6" fill="#344653"/>
+<circle cx="91" cy="107" r="6" fill="#f4f4ed"/>
+<circle cx="107" cy="107" r="6" fill="#10151b"/>
+<path d="M91 4h19l-5 7M110 4l-8 14" fill="none" stroke="#f6c55b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>

@@ -28,8 +28,9 @@
   MCTS and pure Ollama; animated captures, score overlay and move history.
   Consider 13×13 and 19×19 later.
   [Rules overview](https://www.britgo.org/gorules)
-- [ ] **Pentago** — Compare basic Minimax with alpha-beta pruning, including
-  deliberately weak and strong algorithm configurations.
+- [x] **Pentago** — [Implemented](pentago/README.md): standard 6×6 rotating
+  board, plain Minimax versus alpha-beta, weak/strong presets and custom limits,
+  Human, Random, Heuristic, pure Ollama, animated turns, and replayable tournaments.
 - [ ] **The Royal Game of Ur**.
 - [ ] **Senet**.
 - [ ] **Ludus Coriovalli / Roman Blocking Games**.
@@ -39,5 +40,3 @@
 - [ ] **Go-Moku (Five in a Row)**.
 - [ ] **Fox and Geese**, including traditional variants such as **Halatafl**.
 - [ ] **Tafl Games (Viking Chess / Hnefatafl)**.
-
-Suggested next priority: Pentago for further two-player AI comparisons.

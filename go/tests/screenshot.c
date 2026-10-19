@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui-fixture.h"
 static gboolean capture(App *a, const char *directory, const char *name) {
-  pump(100);
   GdkPaintable *paintable = gtk_widget_paintable_new(a->window);
+  /* Observe a rendered frame before snapshotting a paused animation. */
+  gtk_widget_queue_draw(a->window);
+  pump(100);
   GtkSnapshot *snapshot = gtk_snapshot_new();
   int width = gtk_widget_get_width(a->window),
       height = gtk_widget_get_height(a->window);

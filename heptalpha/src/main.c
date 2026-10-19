@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <adwaita.h>
+#include "../../tools/ui-panels.h"
+#include "../../tools/ollama-view.h"
 #include <math.h>
 #include <glib/gstdio.h>
 #include "animation.h"
@@ -128,6 +130,7 @@ static void show_end_pause(App *app)
 }
 static void cancel_work(App *app)
 {
+    ollama_view_invalidate(GTK_WINDOW(app->window));
     dismiss_end_pause(app);
     app->generation++;
     if (app->cancel) g_cancellable_cancel(app->cancel);
@@ -139,6 +142,7 @@ static void cancel_work(App *app)
 }
 static void clear_attempt(App *app)
 {
+    ollama_view_clear(GTK_WINDOW(app->window));
     cancel_work(app);
     game_init(&app->game);
     for (unsigned i = 0; i < GAME_MAX_DEPTH; i++) g_clear_pointer(&app->details[i], g_free);
@@ -299,6 +303,7 @@ static void launch(App *app, gboolean list)
     job->model = g_strdup(app->selected_model); job->url = g_strdup(app->url);
     job->options = app->options; job->list = list; job->chosen = -1;
     app->cancel = g_cancellable_new();
+    if(!list && job->kind==PLAYER_OLLAMA)ollama_view_bind(GTK_WINDOW(app->window),app->cancel,_("Player"),app->game.moves+1,job->model);
     app->task = g_task_new(NULL, app->cancel, done, app);
     g_task_set_task_data(app->task, job, job_free);
     g_task_set_return_on_cancel(app->task, FALSE);
@@ -327,18 +332,19 @@ static void begin_clicked(GtkButton *button_widget, gpointer data)
     GtkStringObject *model = gtk_drop_down_get_selected_item(GTK_DROP_DOWN(app->model));
     app->selected_model = g_strdup(model ? gtk_string_object_get_string(model) : "");
     if (app->kind == PLAYER_OLLAMA && !*app->selected_model) { set_error(app, _("Select an Ollama model first.")); update(app); return; }
-    app->playing = TRUE;
+    app->playing = TRUE;ollama_view_begin(GTK_WINDOW(app->window));
     update(app); schedule(app);
 }
 static void restart_clicked(GtkButton *button_widget, gpointer data)
 {
     (void) button_widget;
     App *app = data;
-    clear_attempt(app); app->playing = TRUE;
+    clear_attempt(app); app->playing = TRUE;ollama_view_begin(GTK_WINDOW(app->window));
     update(app); schedule(app);
 }
 static void configure_clicked(GtkButton *button_widget, gpointer data)
 {
+    ollama_view_clear(GTK_WINDOW(((App *)data)->window));
     (void) button_widget;
     App *app = data;
     app->playing = FALSE; clear_attempt(app); update(app);
@@ -359,7 +365,7 @@ static void undo_clicked(GtkButton *button_widget, gpointer data)
     if (app->kind != PLAYER_HUMAN || app->animation.active || !game_undo(&app->game)) return;
     g_clear_pointer(&app->details[app->game.moves], g_free);
     dismiss_end_pause(app);
-    app->saved = FALSE; app->selected = -1; set_error(app, NULL); update(app);
+    app->saved = FALSE; app->selected = -1; set_error(app, NULL); ollama_view_undo(GTK_WINDOW(app->window));update(app);
 }
 static void refresh_clicked(GtkButton *button_widget, gpointer data)
 {
@@ -529,6 +535,8 @@ static void language_changed(GObject *object, GParamSpec *spec, gpointer data)
     if (g_mkdir_with_parents(directory, 0700) < 0 || !i18n_save(app->preferences, &error)) {
         set_error(app, error ? error->message : _("Could not save language preference.")); g_clear_error(&error);
     }
+
+    ollama_view_retranslate(GTK_WINDOW(app->window));
 }
 static gboolean close_window(GtkWindow *window, gpointer data)
 {
@@ -579,15 +587,16 @@ static void activate(GtkApplication *application, gpointer data)
     app->restart = button("Restart", G_CALLBACK(restart_clicked), app); gtk_box_append(GTK_BOX(sidebar), app->restart);
     app->configure = button("New configuration", G_CALLBACK(configure_clicked), app); gtk_box_append(GTK_BOX(sidebar), app->configure);
     app->status = gtk_label_new(NULL); gtk_label_set_wrap(GTK_LABEL(app->status), TRUE); gtk_label_set_xalign(GTK_LABEL(app->status), 0);
-    gtk_box_append(GTK_BOX(sidebar), app->status);
     app->error_label = gtk_label_new(NULL); gtk_label_set_wrap(GTK_LABEL(app->error_label), TRUE); gtk_widget_add_css_class(app->error_label, "error");
-    gtk_box_append(GTK_BOX(sidebar), app->error_label); gtk_widget_set_visible(app->error_label, FALSE);
+    gtk_widget_set_visible(app->error_label, FALSE);
+    gtk_box_append(GTK_BOX(sidebar), ui_message_panel(app->status, app->error_label));
     GtkWidget *right = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10); gtk_widget_set_hexpand(right, TRUE); gtk_box_append(GTK_BOX(body), right);
     app->board = gtk_drawing_area_new(); gtk_widget_set_size_request(app->board, 520, 520); gtk_widget_set_vexpand(app->board, TRUE);
     gtk_widget_set_hexpand(app->board, TRUE); gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(app->board), draw, app, NULL);
     gtk_widget_set_focusable(app->board, TRUE); gtk_box_append(GTK_BOX(right), app->board);
     GtkWidget *rules = label("Place twenty pieces. Enter an empty point, pass over the next point, and stop at the following empty point on the same curved path. Do not switch paths at intersections. The middle point may be occupied.");
-    gtk_label_set_wrap(GTK_LABEL(rules), TRUE); gtk_box_append(GTK_BOX(right), rules);
+    gtk_label_set_wrap(GTK_LABEL(rules), TRUE); gtk_label_set_selectable(GTK_LABEL(rules), TRUE);
+    gtk_box_append(GTK_BOX(right), ui_fixed_text_panel(rules, 80));
     GtkGesture *gesture = gtk_gesture_click_new(); g_signal_connect(gesture, "pressed", G_CALLBACK(click), app);
     gtk_widget_add_controller(app->board, GTK_EVENT_CONTROLLER(gesture));
     GtkEventController *keys = gtk_event_controller_key_new(); g_signal_connect(keys, "key-pressed", G_CALLBACK(key_pressed), app);
@@ -615,7 +624,9 @@ static void activate(GtkApplication *application, gpointer data)
         }
         cairo_surface_mark_dirty(app->background);
     }
-    update(app); gtk_window_present(GTK_WINDOW(app->window));
+    update(app);
+    adw_header_bar_pack_start(ADW_HEADER_BAR(header),ollama_view_install(GTK_WINDOW(app->window),app->controller,NULL,PLAYER_OLLAMA,i18n_translate));
+    gtk_window_present(GTK_WINDOW(app->window));
 }
 int main(int argc, char **argv)
 {
