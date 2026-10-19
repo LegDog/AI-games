@@ -1,0 +1,33 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 502 502">
+<rect x="0" y="0" width="502" height="502" rx="76" fill="#171b27"/>
+<circle cx="251" cy="251" r="244" fill="none" stroke="#d4af37" stroke-width="2" opacity=".65"/>
+<path id="path-1" d="M251.000000000000,33.000000000000 Q440.173310255255,207.822426405455 345.586655127628,447.411213202727" fill="none" stroke="#d4af37" stroke-width="7"/>
+<path id="path-2" d="M421.439263178031,115.079223194796 Q402.705216100806,371.980872795047 156.413344872372,447.411213202727" fill="none" stroke="#d4af37" stroke-width="7"/>
+<path id="path-3" d="M463.534284855638,299.509563602477 Q251.000000000000,445.038254409906 38.465715144362,299.509563602477" fill="none" stroke="#d4af37" stroke-width="7"/>
+<path id="path-4" d="M345.586655127628,447.411213202727 Q99.294783899194,371.980872795047 80.560736821969,115.079223194796" fill="none" stroke="#d4af37" stroke-width="7"/>
+<path id="path-5" d="M156.413344872372,447.411213202727 Q61.826689744745,207.822426405455 251.000000000000,33.000000000000" fill="none" stroke="#d4af37" stroke-width="7"/>
+<path id="path-6" d="M38.465715144362,299.509563602477 Q166.809956644786,76.177573594545 421.439263178031,115.079223194796" fill="none" stroke="#d4af37" stroke-width="7"/>
+<path id="path-7" d="M80.560736821969,115.079223194796 Q335.190043355214,76.177573594545 463.534284855638,299.509563602477" fill="none" stroke="#d4af37" stroke-width="7"/>
+<circle id="node-v1" cx="251.000000000000" cy="33.000000000000" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-v2" cx="421.439263178031" cy="115.079223194796" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-v3" cx="463.534284855638" cy="299.509563602477" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-v4" cx="345.586655127628" cy="447.411213202727" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-v5" cx="156.413344872372" cy="447.411213202727" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-v6" cx="38.465715144362" cy="299.509563602477" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-v7" cx="80.560736821969" cy="115.079223194796" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i1" cx="251.000000000000" cy="121.997482192305" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i2" cx="318.707669814100" cy="110.403574918966" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i3" cx="351.858229739698" cy="170.568245732803" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i4" cx="403.137753087520" cy="216.275550649394" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i5" cx="376.768155352454" cy="279.705760745284" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i6" cx="373.005005241441" cy="348.295744990508" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i7" cx="306.972094781982" cy="367.227252425760" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i8" cx="251.000000000000" cy="407.050258882265" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i9" cx="195.027905218018" cy="367.227252425760" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i10" cx="128.994994758559" cy="348.295744990508" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i11" cx="125.231844647546" cy="279.705760745284" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i12" cx="98.862246912480" cy="216.275550649394" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i13" cx="150.141770260302" cy="170.568245732803" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+<circle id="node-i14" cx="183.292330185900" cy="110.403574918966" r="10" fill="#40d9f2" stroke="#d4af37" stroke-width="2.5"/>
+</svg>

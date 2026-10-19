@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Reversi
+Comment=Play Reversi or compare positional, Minimax, MCTS and language-model players
+Comment[pt]=Jogue Reversi ou compare jogadores posicionais, Minimax, MCTS e modelos de linguagem
+Comment[es]=Juega Reversi o compara jugadores posicionales, Minimax, MCTS y modelos de lenguaje
+Comment[it]=Gioca a Reversi o confronta giocatori posizionali, Minimax, MCTS e modelli linguistici
+Exec=reversi
+Icon=io.github.aigames.Reversi
+Terminal=false
+Categories=Game;BoardGame;GTK;
+StartupNotify=true

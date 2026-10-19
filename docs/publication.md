@@ -17,8 +17,9 @@ reflog deletion was needed or performed.
 
 The apps declare GPL-3.0-or-later in Meson and their READMEs, include license
 copies, and mark project C sources/headers with SPDX identifiers. The current
-application IDs are `io.github.aigames.FourInARow` and
-`io.github.aigames.TicTacToe`. Confirm that this is the intended long-term
+application IDs are `io.github.aigames.FourInARow`,
+`io.github.aigames.TicTacToe`, `io.github.aigames.Pentalpha`, and
+`io.github.aigames.Heptalpha`. Confirm that this is the intended long-term
 namespace before distributing desktop packages; the repository cannot establish
 namespace ownership. Changing IDs later affects desktop integration and app
 identity, so no automatic rename is made here.
@@ -58,3 +59,24 @@ IDs were `io.github.aigames.Connect4` and `io.github.aigames.JogoDaVelha`.
 Output files now use game-specific prefixes. Old histories and logs are left
 untouched; new game records go to `<game>-history.md`, communication to
 `<game>-ollama.log`, and failures to `<game>-ollama-error.log`.
+
+Peg Solitaire is published as `peg-solitaire`, desktop ID `io.github.aigames.PegSolitaire`. Its board and icon are original vector/Cairo artwork; no solution database is distributed.
+
+Pentalfa Cruzado Circulado uses executable `pentalpha-crossed-circle` and desktop ID `io.github.aigames.PentalphaCrossedCircle`. Its board and icon are original generated vectors. The user-supplied photograph and branding are not distributed; no solution database is included.
+
+Reversi uses executable `reversi` and desktop ID `io.github.aigames.Reversi`. The 8×8 board is drawn with Cairo and the icon is original SVG artwork. The game follows the cited World Othello Federation rules without redistributing its illustrations or branding.
+
+Hex uses executable `hex` and desktop ID `io.github.aigames.Hex`. Its rhombus board, hexagonal cells, colored borders, and icon are original Cairo/SVG artwork. Rules sources and the reflected opening-swap convention are documented in its README; no source illustrations or precomputed solutions are redistributed.
+
+Tavli uses executable `tavli` and desktop ID `io.github.aigames.Tavli`. Its board and icon are original Cairo/SVG artwork. The README cites the published Greek/backgammon rules and identifies Running as the user's custom rules. No trained models or precomputed strategies are redistributed.
+
+Sokoban uses executable `sokoban` and desktop ID `io.github.aigames.Sokoban`.
+Its eight bundled levels, Cairo graphics and SVG icon are original project work.
+The README links the official rules; no commercial level collections, source
+illustrations, branding, or precomputed solutions are redistributed.
+
+Go uses executable `go-game` (avoiding the Go language tool's `go` name),
+desktop ID `io.github.aigames.Go`, and repository selector `GAME=go`. Its board
+and SVG icon are original drawings. No external engine, trained network, opening
+book, or source artwork is redistributed. The README identifies the exact
+Chinese-style rules and played-out capture convention.

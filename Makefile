@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := all
 
-GAMES := tic-tac-toe four-in-a-row
+GAMES := tic-tac-toe four-in-a-row pentalpha heptalpha peg-solitaire pentalpha-crossed-circle reversi hex tavli sokoban go
 ifdef GAME
 ifeq ($(filter $(GAME),$(GAMES)),)
-$(error GAME must be tic-tac-toe or four-in-a-row)
+$(error GAME must be tic-tac-toe, four-in-a-row, pentalpha, heptalpha, peg-solitaire, pentalpha-crossed-circle, reversi, hex, tavli, sokoban, or go)
 endif
 SELECTED_GAMES := $(GAME)
 else
@@ -21,10 +21,19 @@ run:
 
 help:
 	@printf '%s\n' \
-		'make / make test / make install / make clean: operate on both games' \
-		'make test-ollama: test Ollama integration in both games' \
+		'make / make test / make install / make clean: operate on all games' \
+		'make test-ollama: test Ollama integration in all games' \
 		'make GAME=four-in-a-row: build only Four in a Row' \
 		'make run: launch Tic-Tac-Toe' \
 		'make GAME=four-in-a-row run: launch Four in a Row' \
+		'make GAME=pentalpha run: launch Pentalpha' \
+		'make GAME=heptalpha run: launch Heptalpha' \
+		'make GAME=peg-solitaire run: launch Peg Solitaire' \
+		'make GAME=pentalpha-crossed-circle run: launch Pentalfa Cruzado Circulado' \
+		'make GAME=reversi run: launch Reversi' \
+		'make GAME=hex run: launch Hex' \
+		'make GAME=tavli run: launch Tavli' \
+		'make GAME=sokoban run: launch Sokoban' \
+		'make GAME=go run: launch Go (go-game)' \
 		'make -C four-in-a-row help: individual project options' \
 		'Build variables (PREFIX, MESON_ARGS, etc.) are forwarded to each project.'

@@ -5,21 +5,30 @@ playing games. We may add more games and algorithms soon. Contributions are
 welcome—feel free to contribute new games, algorithms, experiments, or improvements.
 English is the primary language for project documentation and contributions.
 
-The repository currently contains two independent GNOME applications written
+The repository currently contains eleven independent GNOME applications written
 in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 
 - [Tic-Tac-Toe](tic-tac-toe/README.md): a 3×3 board, mouse and numeric keypad controls.
 - [AI Games: Four in a Row](four-in-a-row/README.md): a 7×6 board with gravity, mouse and 1–7 key controls.
+- [AI Games: Pentalpha](pentalpha/README.md): a single-player star puzzle with animated placements and Human, Random, Heuristic, Search, and Ollama controllers.
+- [AI Games: Heptalpha](heptalpha/README.md): a twenty-piece puzzle on 21 points, with curved animations and full-depth Search.
+- [AI Games: Peg Solitaire](peg-solitaire/README.md): English and triangular boards, animated jumps, Backtracking, A*, and Ollama.
+- [AI Games: Pentalfa Cruzado Circulado](pentalpha-crossed-circle/README.md): 36-point placement puzzle with a closed circle, curved animation, graph/forest/GF(2) controllers, and a separate symmetry-search variation. Its experimental target is 35; the proven optimum is 34.
+- [AI Games: Tavli](tavli/README.md): Portes, Plakoto, Fevga, Backgammon, and custom Running, with match play, Backgammon cube, Expectiminimax, stochastic MCTS, and pure Ollama.
+- [AI Games: Sokoban](sokoban/README.md): eight original box-pushing levels, XSB import, minimum-push A*, Greedy Best-first, deadlock pruning, Random, and pure Ollama.
+- [AI Games: Go](go/README.md): 9×9, Chinese-style area scoring, positional superko, captures, configurable komi, Heuristic, MCTS, and pure Ollama.
+- [AI Games: Hex](hex/README.md): connection game on 3×3, 5×5, or 7×7 boards, optional opening swap, connection heuristic, Minimax, MCTS, and pure Ollama.
+- [AI Games: Reversi](reversi/README.md): standard 8×8 disc-flipping game with Human, Random, Positional, Minimax, MCTS, and pure Ollama players.
 
 Each directory contains its own engine, interface, tests, Makefile, Meson
-project, installation resources, and license copy. Within this checkout, either application can be
+project, installation resources, and license copy. Within this checkout, each application can be
 built and used independently. Shared development drivers live in `tools/`.
 
 ## Contributing and comparing algorithms
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). The
 [headless tournament runner](docs/experiments.md) exports repeatable CSV results
-with seeds, controller settings, and move sequences. CI builds both apps,
+with seeds, controller settings, and move sequences. CI builds all apps,
 runs engine, translation, Ollama, and GUI tests, and captures the actual
 interfaces. See [screenshot instructions](docs/screenshots.md) for generating
 and reviewing previews.
@@ -44,21 +53,30 @@ The build uses the libraries and development files installed on your system.
 ## Commands from the repository root
 
 ```sh
-make                              # build both applications
+make                              # build all applications
 make run                          # launch Tic-Tac-Toe
 make GAME=four-in-a-row run            # launch Four in a Row
+make GAME=pentalpha run                # launch Pentalpha
+make GAME=heptalpha run                # launch Heptalpha
+make GAME=peg-solitaire run            # launch Peg Solitaire
+make GAME=pentalpha-crossed-circle run # launch Pentalfa Cruzado Circulado
+make GAME=reversi run                 # launch Reversi
+make GAME=hex run                     # launch Hex
+make GAME=tavli run                   # launch Tavli
+make GAME=sokoban run                 # launch Sokoban
+make GAME=go run                      # launch Go (go-game)
 make GAME=four-in-a-row                # build only Four in a Row
-make test                         # test both engines without a display
+make test                         # test all engines without a display
 make GAME=four-in-a-row test           # test one engine
-make test-ollama                   # test both Ollama clients and logs
+make test-ollama                   # test all Ollama clients and logs
 make test-ui                      # include GUI tests; requires a display
-make install                      # install both applications under ~/.local
+make install                      # install all applications under ~/.local
 make install PREFIX=/other/path   # choose another installation prefix
 make clean                        # remove build artifacts, preserving histories
 ```
 
 The `build`, `configure`, `test`, `test-ui`, `install`, and `clean` targets
-operate on both projects, or only the one selected by `GAME`. `run` defaults
+operate on all projects, or only the one selected by `GAME`. `run` defaults
 to Tic-Tac-Toe. `PREFIX`, `MESON_ARGS`, and `DESTDIR` are forwarded to each
 application's Makefile. Relative build paths are relative to each application's
 directory.
@@ -69,19 +87,26 @@ For an optimized build, use `make MESON_ARGS='-Dbuildtype=release'`.
 
 ## Games and histories
 
-Each side has a **Human / Positional / Minimax / Ollama** selector, allowing
+In the two-player games, each side has a **Human / Positional / Minimax / Ollama** selector, allowing
 all combinations. Each Minimax player has its own search depth: 1–9 (default 9)
 in Tic-Tac-Toe and 1–12 (default 6) in Four in a Row. The default is a human
 first player and a positional second player. Searches run in the background
 and complete the selected depth; **New configuration** cancels analysis.
 
-The 0–3 second delay, adjustable in 0.1-second steps, is the minimum turn time:
+In the two-player games, the 0–3 second delay, adjustable in 0.1-second steps, is the minimum turn time:
 analysis and the timer start together. Games restart three seconds after a
 result, preserving controllers, depths, and delay. Positional and Minimax
 players treat all opening moves as equivalent and choose randomly.
 
-Before every human or automated move, evaluation components are recorded in
-memory. Games with a winner are appended to the history with a timestamp;
+For Pentalpha and Heptalpha, the delay controls a half-blink, half-slide animation after each
+decision. Pause/Resume, Human Undo, and persistent completed boards support
+review. Completed and stuck attempts are recorded in each puzzle’s history file.
+Their single-player Search discovers solutions at runtime, with full depth as
+the default; optional Ollama assistance is off. See [Pentalpha](pentalpha/README.md)
+and [Heptalpha](heptalpha/README.md).
+
+In the two-player games, before every human or automated move, evaluation
+components are recorded in memory. Games with a winner are appended to the history with a timestamp;
 draws and abandoned games are not saved.
 
 Tic-Tac-Toe uses `tic-tac-toe-history.md`; Four in a Row uses `four-in-a-row-history.md`.
@@ -108,11 +133,12 @@ All Ollama communication is appended to `<game>-ollama.log` in the working direc
 including prompts, complete responses, and `thinking` when returned by the
 model. The format is JSON Lines; `OLLAMA_LOG_FILE` overrides the path.
 
-Each Ollama player offers optional **Tactical assistance** (off by default)
+The earlier games offer optional **Tactical assistance** (off by default)
 and **Extended reasoning** (on by default). Histories distinguish pure and
 assisted modes. Prompts identify pieces, coordinates, and landing cells;
 Cogito v1 can analyze before producing its JSON decision. The game READMEs
-explain these controls and their limits.
+explain these controls and their limits. Reversi, Hex, and Tavli use pure Ollama decisions
+with optional Extended thinking and no tactical assistance.
 
 Communication failures, validation errors, and timeouts are also appended to
 `<game>-ollama-error.log`; `OLLAMA_ERROR_LOG_FILE` overrides its path. Both logs share
@@ -123,21 +149,32 @@ history explicitly identifies this mode; pure Ollama play remains available.
 
 ## Interface languages
 
-Both apps offer a header selector for **English**, **Português**, **Español**
+All apps offer a header selector for **English**, **Português**, **Español**
 and **Italiano**, plus **System default**. Automatic selection follows the system's
 preferred supported language, with **English** as the fallback. Changes apply
 immediately and are saved independently for each app under
 `~/.config/ai-games/` (or `$XDG_CONFIG_HOME/ai-games/`). Translations are embedded
 in the binaries; the normal build and `make test` include internationalization.
 
-Default output files are separate even when both games run in the same directory:
+Default output files are separate even when multiple games run in the same directory:
 
 | Game | History | Ollama communication | Ollama errors |
 | --- | --- | --- | --- |
 | Tic-Tac-Toe | `tic-tac-toe-history.md` | `tic-tac-toe-ollama.log` | `tic-tac-toe-ollama-error.log` |
 | Four in a Row | `four-in-a-row-history.md` | `four-in-a-row-ollama.log` | `four-in-a-row-ollama-error.log` |
+| Pentalpha | `pentalpha-history.md` | `pentalpha-ollama.log` | `pentalpha-ollama-error.log` |
+| Heptalpha | `heptalpha-history.md` | `heptalpha-ollama.log` | `heptalpha-ollama-error.log` |
+| Peg Solitaire | `peg-solitaire-history.md` | `peg-solitaire-ollama.log` | `peg-solitaire-ollama-error.log` |
+| Pentalfa Cruzado Circulado | `pentalpha-crossed-circle-history.md` | `pentalpha-crossed-circle-ollama.log` | `pentalpha-crossed-circle-ollama-error.log` |
+| Reversi | `reversi-history.md` | `reversi-ollama.log` | `reversi-ollama-error.log` |
+| Hex | `hex-history.md` | `hex-ollama.log` | `hex-ollama-error.log` |
+| Tavli | `tavli-history.md` | `tavli-ollama.log` | `tavli-ollama-error.log` |
+| Sokoban | `sokoban-history.md` | `sokoban-ollama.log` | `sokoban-ollama-error.log` |
+| Go | `go-history.md` | `go-ollama.log` | `go-ollama-error.log` |
 
 Each JSON log entry also includes its game ID, and each saved game history
 heading includes its game name. Existing files keep their original names and
 contents; new writes use the defaults above. Explicit log-path environment
 variables still override the default filenames.
+
+Peg Solitaire includes independent rules and controls in its [README](peg-solitaire/README.md), a bounded runtime solver, and `peg-solitaire-history.md` decision histories. Its Ollama logs use the `peg-solitaire` filename prefix.

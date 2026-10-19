@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Pentalpha
+Comment=Solve the nine-piece star puzzle or watch algorithms discover solutions
+Comment[pt]=Resolva o quebra-cabeça de nove peças ou acompanhe os algoritmos
+Comment[es]=Resuelve el rompecabezas de nueve piezas o mira los algoritmos
+Comment[it]=Risolvi il rompicapo a nove pezzi o guarda gli algoritmi
+Exec=pentalpha
+Icon=io.github.aigames.Pentalpha
+Terminal=false
+Categories=Game;LogicGame;GTK;
+StartupNotify=true

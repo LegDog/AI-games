@@ -31,6 +31,8 @@ const unsigned *game_winning_line(const Game *game);
 /* 0: ongoing; 1/-1: winner; 2: draw. */
 int game_result(const Game *game);
 gboolean game_play(Game *game, unsigned cell);
+/* Equal probability for center, sides and corners; uniform within each set. */
+int game_random_opening(GRand *random);
 void game_evaluate(const Game *game, GRand *random, Score scores[9]);
 int game_best_move(const Score scores[9]);
 char game_symbol(int player);

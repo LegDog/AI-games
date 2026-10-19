@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Pentalfa Cruzado Circulado
+Comment=Solve the 35-piece crossed-circle puzzle or watch algorithms discover solutions
+Comment[pt]=Resolva o quebra-cabeça de 35 peças ou acompanhe os algoritmos
+Comment[es]=Resuelve el rompecabezas de 35 piezas o mira los algoritmos
+Comment[it]=Risolvi il rompicapo a 35 pezzi o guarda gli algoritmi
+Exec=pentalpha-crossed-circle
+Icon=io.github.aigames.PentalphaCrossedCircle
+Terminal=false
+Categories=Game;LogicGame;GTK;
+StartupNotify=true

@@ -34,6 +34,16 @@ The installed executable is `~/.local/bin/tic-tac-toe`. Each instance has its
 own game. Player settings are not persisted after closing; the interface
 language is saved separately.
 
+## Rules
+
+Two players, **X** and **O**, play on an initially empty 3×3 board. X starts,
+and players take turns placing one mark in an empty cell. Placed marks cannot
+be moved or removed, and occupied cells cannot be played again.
+
+The first player to complete a horizontal, vertical, or diagonal line of
+three matching marks wins. If all nine cells are filled without a winning
+line, the game ends in a draw. Play stops as soon as either result is reached.
+
 ## Playing
 
 Configure **X** and **O** independently as **Human**, **Positional**, **Minimax**,
@@ -81,7 +91,10 @@ retain two open lines, while edge cells retain only one. The history records
 this component under “Linhas abertas ×0,2” (open lines ×0.2). Its maximum of
 0.8 points breaks ties between earlier criteria before randomness. On an empty
 board, this component is zero: all nine cells have equal strategic value,
-and randomness alone chooses the opening.
+and randomness alone chooses the opening. All automated players first choose
+center (5), sides (2, 4, 6, 8), or corners (1, 3, 7, 9) with probability
+1/3 each, then choose uniformly within that set. Thus the center has probability
+1/3 and each individual side or corner has probability 1/12.
 
 A random component in `[0, 0.1)` is added once per cell. After the opening move,
 an empty center also receives a **5-point bonus**. This favors the center on
@@ -109,7 +122,7 @@ formula; it does not run Minimax or guarantee perfect play.
 Each Minimax player has an independent depth slider: **1–9, default 9**, in
 integer steps. Depth includes the candidate move and is capped at the remaining
 cells. At depth 9, it searches to the end and plays optimally; randomized
-opening selection keeps all starting cells equivalent. At smaller depths,
+opening selection gives each position set equal probability. At smaller depths,
 cutoff evaluation adds 1 for one piece and 10 for two pieces in an unblocked
 line, subtracting the opponent's corresponding values. Shallower searches can
 make mistakes.
@@ -120,7 +133,7 @@ a complete search value so history values can be compared. Terminal results
 take precedence over positional evaluation; faster wins and later losses are
 preferred. Random selection breaks ties among the best alternatives within
 1e-9 tolerance. On an empty board, no search is performed: all alternatives
-have value zero and the opening move is uniformly random.
+have value zero and the opening uses the position-set probabilities above.
 
 The **Positional** player retains its own formula and tactical factors.
 Automated calculations use board copies and independent random generators
@@ -216,14 +229,15 @@ response cause a turn error, without substitution by another algorithm.
 
 Each turn sends the rules, board symbols and coordinates, player identity,
 and legal moves through `POST /api/generate`, requesting a structured JSON
-response. The model chooses the opening move too. Positional evaluations
+response. On an empty board, the application chooses the random opening
+using the position-set probabilities above without calling the model. Positional evaluations
 remain in the history but are not sent as suggestions to the model. The
 engine validates the response again: occupied cells and full columns are
 not accepted.
 
 The interface remains responsive during requests. The delay remains a minimum
 turn time and overlaps generation. Model listing has a total deadline of
-100 seconds; each turn has 1,800 seconds (30 minutes), including model loading.
+1,000 seconds; each turn has 18,000 seconds (5 hours), including model loading.
 Connection failures, timeouts, and invalid responses **pause the game** while
 preserving the board. Use **Retry** to request a move for the same position,
 or **New configuration** to abandon the game. There is no fallback automated
@@ -306,7 +320,7 @@ reasoning uses the Cogito v1 protocol. It first requests analysis with
 generation to a JSON schema. It then sends the analysis to the same model in
 a second request to select the move using the JSON schema. Name recognition
 does not cover arbitrarily renamed models or Cogito 2.1. Requests share the
-turn's 1,800-second (30-minute) deadline and cancellation. Failure at either
+turn's 18,000-second (5-hour) deadline and cancellation. Failure at either
 stage pauses the game, without automatic substitution.
 
 The engine also validates the assistance filter: a legal response outside the

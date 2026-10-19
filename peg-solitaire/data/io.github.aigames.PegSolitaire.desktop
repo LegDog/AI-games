@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Peg Solitaire
+Name[pt]=Jogos de IA: Resta Um
+Name[es]=Juegos de IA: Solitario de clavijas
+Name[it]=Giochi IA: Solitario
+Comment=Jump and remove pegs, or watch algorithms discover solutions
+Comment[pt]=Salte e remova peças ou acompanhe os algoritmos
+Comment[es]=Salta y retira fichas o mira los algoritmos
+Comment[it]=Salta e rimuovi pedine o guarda gli algoritmi
+Exec=peg-solitaire
+Icon=io.github.aigames.PegSolitaire
+Terminal=false
+Categories=Game;LogicGame;GTK;
+StartupNotify=true

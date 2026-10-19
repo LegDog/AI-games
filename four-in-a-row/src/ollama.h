@@ -6,7 +6,7 @@
 #define OLLAMA_DEFAULT_LOG_FILE GAME_ID "-ollama.log"
 #define OLLAMA_DEFAULT_ERROR_LOG_FILE GAME_ID "-ollama-error.log"
 #define OLLAMA_DEFAULT_URL "http://127.0.0.1:11434"
-enum { OLLAMA_LIST_TIMEOUT_MS = 100000, OLLAMA_MOVE_TIMEOUT_MS = 1800000 };
+enum { OLLAMA_LIST_TIMEOUT_MS = 1000000, OLLAMA_MOVE_TIMEOUT_MS = 18000000 };
 typedef struct { gboolean assisted, thinking; } OllamaOptions;
 typedef enum { OLLAMA_REASONING_DEFAULT, OLLAMA_REASONING_NATIVE, OLLAMA_REASONING_COGITO } OllamaReasoning;
 typedef struct {

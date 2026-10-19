@@ -14,6 +14,17 @@ make MESON_ARGS=-Dwerror=true
 make test
 make test-ollama MESON_ARGS=-Dwerror=true
 python3 scripts/test-tournament.py
+python3 scripts/test-pentalpha-runner.py
+python3 scripts/test-heptalpha-runner.py
+python3 scripts/test-peg-solitaire-runner.py
+python3 scripts/test-pentalpha-crossed-circle-runner.py
+python3 scripts/test-reversi-tournament.py
+python3 scripts/test-hex-tournament.py
+python3 scripts/test-tavli-tournament.py
+python3 scripts/test-sokoban-runner.py
+python3 scripts/test-go-tournament.py
+python3 scripts/generate-pentalpha-crossed-circle-board.py --check
+python3 scripts/generate-heptalpha-board.py --check
 python3 scripts/test-audit-history.py
 python3 scripts/audit-history.py
 make test-ui MESON_ARGS=-Dwerror=true
@@ -27,10 +38,16 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a dbus-run-session --
 
 Ollama protocol tests use a mock service; no model download is required. Local
 HTTP tests may skip when socket creation is blocked. Check the test log for
-skips before claiming full validation. CI runs both apps and the GUI tests on
+skips before claiming full validation. CI runs all eleven apps and the GUI tests on
 Ubuntu with a virtual display.
 
 ## Games and algorithms
+
+Pentalpha and Heptalpha use `src/search.*` for single-player maximizing search
+and dedicated `puzzle-runner` executables. Heptalpha uses 64-bit move masks and
+checked-in generated curve/topology data. Their READMEs document their controllers
+and animation. Use `scripts/generate-heptalpha-board.py --check` to detect artwork
+or topology drift; normal builds do not regenerate these assets.
 
 Each game's directory contains its rules and scoring (`src/game.*`), Minimax
 search (`src/minimax.*`), Ollama integration (`src/ollama.*`), GTK interface
@@ -55,7 +72,7 @@ is not a general win rate or a proof of perfect play.
 
 ## Translations
 
-Update `src/i18n-catalog.inc` in both games. Columns are English, Portuguese,
+Update `src/i18n-catalog.inc` in all nine games. Columns are English, Portuguese,
 Spanish, and Italian; preserve printf placeholders and their order. Keep the
 shared catalog/helper copies synchronized. Add GUI labels through the existing
 translation bindings so they change without resetting a game. `make test`
@@ -77,3 +94,15 @@ intended for documentation should come from the actual application.
 All contributions are provided under the repository's GPL-3.0-or-later license.
 Use `SPDX-License-Identifier: GPL-3.0-or-later` on new project source files.
 Avoid introducing code or assets without compatible licensing and attribution.
+
+Peg Solitaire uses `src/search.*` for bounded Backtracking and A* plans. Its tests independently enumerate triangular positions, replay CSV jumps, and verify search limits, certification, cancellation, and atomic animation. Keep all nine translation catalogs synchronized.
+
+Pentalfa Cruzado Circulado uses explicit lists for its 120 movements and 64-bit occupancy for 36 points. Its Search uses bounded iterative deepening and a symmetry-aware sparse cache. Only complete root iterations may be used for decisions or Ollama assistance. Keep the topology, SVG, and animation geometry synchronized with the board generator.
+
+Crossed Circle graph/algebra variations live separately from the legacy `search.c` and Ollama assistance. Its legal entry–destination graph has two components: target 35 is experimental and 34 is provably optimal. Keep board results separate from proof metadata. Tests compare the graph bound against exhaustive subsets, Gauss–Jordan rank against connectivity, symmetry-search values against baseline, and legacy CSV outputs against pre-variation digests.
+
+Reversi uses `src/search.*` for bounded iterative alpha-beta Minimax and UCT Monte Carlo tree search. Its bitboard rules are checked against independent coordinate-based capture and pass logic. Keep forced passes distinct from placements, preserve atomic flip animations, and record both winners and draws.
+
+Hex uses fixed-stride seven-bitboard rows, six-neighbor connectivity, and an optional pie-rule action (bit 63). Swap reflects and recolors the opening to keep controller colors fixed. Compare connection distances against independent replay; preserve no-draw termination, atomic placements/swap, bounded search, and stale-response cancellation.
+
+Tavli uses dynamic complete-turn enumeration and legal prefixes, not fixed move masks. Keep variant-specific rules, dice quotas, cube actor versus active player, and match transitions in the engine. Real dice must remain isolated from search RNGs. Its independent Python replay engine validates exported sessions; Expectiminimax is checked against 36 ordered rolls. Preserve draft undo without rerolls, atomic animations, and complete-decision retention under limits.

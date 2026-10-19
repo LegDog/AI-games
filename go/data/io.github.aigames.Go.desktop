@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Go
+Comment=Compare Go algorithms on a 9 by 9 board
+Exec=go-game
+Icon=io.github.aigames.Go
+Terminal=false
+Categories=Game;BoardGame;StrategyGame;
+StartupNotify=true

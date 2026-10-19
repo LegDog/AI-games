@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Sokoban
+Comment=Compare box-pushing puzzle algorithms
+Exec=sokoban
+Icon=io.github.aigames.Sokoban
+Terminal=false
+Categories=Game;LogicGame;
+StartupNotify=true

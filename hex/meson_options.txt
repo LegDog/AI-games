@@ -1,0 +1,4 @@
+option('app', type: 'boolean', value: true,
+  description: 'Build the GTK/libadwaita application (disable for engine-only tests)')
+option('ui_tests', type: 'boolean', value: false,
+  description: 'Build and run interface tests (requires a graphical display)')

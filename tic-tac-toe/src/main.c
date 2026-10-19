@@ -205,7 +205,9 @@ static void play_cell(App *app, unsigned move)
     game_record(app->history, &app->game, scores, move, kind);
     if (kind == PLAYER_MINIMAX)
         minimax_record(app->history, &app->prepared_minimax);
-    if (kind == PLAYER_OLLAMA)
+    if (kind == PLAYER_OLLAMA && app->game.moves == 0)
+        g_string_append(app->history, "Abertura aleatória: centro, lados e cantos com probabilidade 1/3 cada.\n\n");
+    else if (kind == PLAYER_OLLAMA)
         ollama_record(app->history, current_player(app).model, &app->prepared_ollama);
     app->ready = FALSE;
     game_play(&app->game, move);
@@ -300,6 +302,8 @@ static void turn_worker(GTask *task, gpointer source, gpointer task_data, GCance
             job->chosen = minimax_choose(&job->minimax, random);
             job->minimax.best_move = job->chosen;
         }
+    } else if (ok && job->game.moves == 0) {
+        job->chosen = game_best_move(job->scores);
     } else if (ok && job->player.kind == PLAYER_OLLAMA) {
         GError *error = NULL;
         OllamaOptions options = {.assisted = job->player.ollama_assisted, .thinking = job->player.ollama_thinking};

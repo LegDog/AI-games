@@ -1,8 +1,8 @@
 # Ollama logs and privacy
 
-Both applications append full communication to `<game>-ollama.log` and failures to
+All eleven applications append full communication to `<game>-ollama.log` and failures to
 `<game>-ollama-error.log` in the working directory. They do not rotate or delete these
-files automatically. Here `<game>` is `tic-tac-toe` or `four-in-a-row`.
+files automatically. Here `<game>` is `tic-tac-toe`, `four-in-a-row`, `pentalpha`, `heptalpha`, `peg-solitaire`, `pentalpha-crossed-circle`, `reversi`, `hex`, `tavli`, `sokoban`, or `go`.
 Long sessions and reasoning models can generate large logs. The error log can also contain request/response context and model output.
 
 Treat both files as potentially sensitive. They contain prompts, complete

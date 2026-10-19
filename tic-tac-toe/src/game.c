@@ -113,9 +113,21 @@ static void evaluate_forks(const Game *game, unsigned cell, Score *score)
     }
 }
 
+int game_random_opening(GRand *random)
+{
+    static const int sides[] = {1, 3, 5, 7};
+    static const int corners[] = {0, 2, 6, 8};
+    int group = g_rand_int_range(random, 0, 3);
+    if (group == 0)
+        return 4;
+    int index = g_rand_int_range(random, 0, 4);
+    return group == 1 ? sides[index] : corners[index];
+}
+
 void game_evaluate(const Game *game, GRand *random, Score scores[9])
 {
     memset(scores, 0, sizeof(Score) * 9);
+    int opening = game->moves == 0 ? game_random_opening(random) : -1;
     for (unsigned cell = 0; cell < 9; cell++) {
         if (cell_at(game, cell))
             continue;
@@ -142,6 +154,8 @@ void game_evaluate(const Game *game, GRand *random, Score scores[9])
         score->center_bonus = cell == 4 && game->moves > 0 ? 5 : 0;
         evaluate_forks(game, cell, score);
         score->random = g_rand_double_range(random, 0.0, 0.1);
+        if (opening >= 0)
+            score->random = score->random * 0.5 + ((int) cell == opening ? 0.05 : 0.0);
         score->total = 1000.0 * score->wins + 100.0 * score->blocks +
                        10.0 * score->own_lines + score->opponent_lines +
                        score->center_bonus + 50.0 * score->fork -

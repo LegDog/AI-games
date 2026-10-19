@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Heptalpha
+Comment=Solve the twenty-piece star puzzle or watch algorithms discover solutions
+Comment[pt]=Resolva o quebra-cabeça de vinte peças ou acompanhe os algoritmos
+Comment[es]=Resuelve el rompecabezas de veinte piezas o mira los algoritmos
+Comment[it]=Risolvi il rompicapo a venti pezzi o guarda gli algoritmi
+Exec=heptalpha
+Icon=io.github.aigames.Heptalpha
+Terminal=false
+Categories=Game;LogicGame;GTK;
+StartupNotify=true

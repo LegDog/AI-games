@@ -172,7 +172,8 @@ static void test_open_lines(void)
     Score scores[9];
     game_init(&game);
     unsigned openings = 0;
-    for (unsigned trial = 0; trial < 256; trial++) {
+    unsigned counts[9] = {0};
+    for (unsigned trial = 0; trial < 12000; trial++) {
         game_evaluate(&game, random, scores);
         for (unsigned cell = 0; cell < 9; cell++) {
             g_assert_cmpuint(scores[cell].open_lines, ==, 0);
@@ -180,8 +181,14 @@ static void test_open_lines(void)
             g_assert_cmpfloat(scores[cell].total, ==, scores[cell].random);
         }
         openings |= 1u << game_best_move(scores);
+        counts[game_best_move(scores)]++;
     }
     g_assert_cmpuint(openings, ==, (1u << 9) - 1);
+    for (unsigned cell = 0; cell < 9; cell++) {
+        unsigned expected = cell == 4 ? 4000 : 1000;
+        g_assert_cmpuint(counts[cell], >, expected * 8 / 10);
+        g_assert_cmpuint(counts[cell], <, expected * 12 / 10);
+    }
     /* Regression from 2026-10-16 16:17: against a center opening, corners
      * keep two lines available while sides keep only one, regardless of RNG. */
     game_play(&game, 4);

@@ -238,6 +238,8 @@ int minimax_choose(const MinimaxResult *result, GRand *random)
 {
     if (result->cancelled || result->best_move < 0)
         return -1;
+    if (result->opening_random)
+        return game_random_opening(random);
     double best = -INF;
     for (unsigned move = 0; move < GAME_CHOICES; move++)
         if (result->legal[move]) best = MAX(best, result->values[move]);

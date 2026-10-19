@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Hex
+Comment=Connect opposite sides with human and automated players
+Comment[pt_BR]=Conecte lados opostos com jogadores humanos e automatizados
+Exec=hex
+Icon=io.github.aigames.Hex
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

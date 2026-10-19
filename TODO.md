@@ -1,0 +1,43 @@
+# Games and future additions
+
+- [x] **Pentalfa Cruzado Circulado** — [Implemented](pentalpha-crossed-circle/README.md): 36 points, 35 pieces, closed-circle paths, iterative Search, and Ollama.
+- [x] **Peg Solitaire (Resta Um)** — [Implemented](peg-solitaire/README.md).
+  English and triangular boards, bounded Backtracking/A*, and Ollama.
+  Jump over and remove pegs, aiming to leave one, with animated jumps and captures.
+  [Rules](https://www.chiark.greenend.org.uk/~sgtatham/puzzles/doc/pegs.html)
+- [x] **Reversi / Othello** — [Implemented](reversi/README.md).
+  Two-player disc-flipping game. Compare positional
+  scoring, Minimax, Monte Carlo tree search, and Ollama; animate disc flips.
+  [Rules](https://www.worldothello.org/about/about-othello/othello-rules/official-rules/english)
+- [x] **Hex** — [Implemented](hex/README.md): 3×3, 5×5, and 7×7 boards,
+  optional pie rule, connection heuristic, Minimax, MCTS, and Ollama.
+  [Rules](https://webhomes.maths.ed.ac.uk/~csangwin/hex/index.html)
+- [x] **Sokoban** — [Implemented](sokoban/README.md): eight original levels,
+  XSB import, Human, Random, Greedy Best-first, A*, and pure Ollama;
+  optional deadlock pruning, minimum-push A*, and animated walking/pushes.
+  [Rules](https://sokoban.jp/rule.html)
+- [x] **Tavli** — [Implemented](tavli/README.md): **Portes**, **Plakoto**,
+  **Fevga**, **Backgammon**, and custom **Running**; fixed/traditional matches,
+  Backgammon cube, race/blocking heuristic, Expectiminimax, stochastic MCTS,
+  and pure Ollama. Running follows the supplied and clarified rules.
+  Research reference: Gerald Tesauro’s **TD-Gammon (1992)** used a neural network
+  with temporal-difference learning and self-play to reach master-level play,
+  demonstrating reinforcement learning on stochastic, dice-based boards.
+- [x] **Go** — [Implemented](go/README.md): 9×9, Chinese-style area scoring,
+  no suicide, positional superko, configurable komi, Human, Random, Heuristic,
+  MCTS and pure Ollama; animated captures, score overlay and move history.
+  Consider 13×13 and 19×19 later.
+  [Rules overview](https://www.britgo.org/gorules)
+- [ ] **Pentago** — Compare basic Minimax with alpha-beta pruning, including
+  deliberately weak and strong algorithm configurations.
+- [ ] **The Royal Game of Ur**.
+- [ ] **Senet**.
+- [ ] **Ludus Coriovalli / Roman Blocking Games**.
+- [ ] **Nine Men’s Morris**.
+- [ ] **Alquerque**.
+- [ ] **Checkers (Draughts)**.
+- [ ] **Go-Moku (Five in a Row)**.
+- [ ] **Fox and Geese**, including traditional variants such as **Halatafl**.
+- [ ] **Tafl Games (Viking Chess / Hnefatafl)**.
+
+Suggested next priority: Pentago for further two-player AI comparisons.

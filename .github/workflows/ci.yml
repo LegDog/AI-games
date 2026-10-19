@@ -21,7 +21,7 @@ jobs:
       - name: Install build and display dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential meson ninja-build pkg-config libglib2.0-dev libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev libjson-glib-dev xvfb xauth dbus-x11 desktop-file-utils
+          sudo apt-get install -y build-essential meson ninja-build pkg-config libglib2.0-dev libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev libjson-glib-dev librsvg2-common xvfb xauth dbus-x11 desktop-file-utils
       - name: Audit publication contents and history
         run: |
           python3 scripts/test-audit-history.py
@@ -32,12 +32,32 @@ jobs:
           make test MESON_ARGS=-Dwerror=true
           make test-ollama MESON_ARGS=-Dwerror=true
           python3 scripts/test-tournament.py
-          desktop-file-validate four-in-a-row/data/*.desktop tic-tac-toe/data/*.desktop
+          python3 scripts/test-pentalpha-runner.py
+          python3 scripts/test-heptalpha-runner.py
+          python3 scripts/test-peg-solitaire-runner.py
+          python3 scripts/test-pentalpha-crossed-circle-runner.py
+          python3 scripts/test-reversi-tournament.py
+          python3 scripts/test-hex-tournament.py
+          python3 scripts/test-tavli-tournament.py
+          python3 scripts/test-sokoban-runner.py
+          python3 scripts/test-go-tournament.py
+          python3 scripts/generate-heptalpha-board.py --check
+          python3 scripts/generate-pentalpha-crossed-circle-board.py --check
+          desktop-file-validate four-in-a-row/data/*.desktop tic-tac-toe/data/*.desktop pentalpha/data/*.desktop heptalpha/data/*.desktop peg-solitaire/data/*.desktop pentalpha-crossed-circle/data/*.desktop reversi/data/*.desktop hex/data/*.desktop tavli/data/*.desktop sokoban/data/*.desktop go/data/*.desktop
       - name: GUI tests and actual application screenshots
         run: |
           xvfb-run -a dbus-run-session -- make test-ui MESON_ARGS=-Dwerror=true
           xvfb-run -a dbus-run-session -- four-in-a-row/build-ui/screenshot screenshots
           xvfb-run -a dbus-run-session -- tic-tac-toe/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- pentalpha/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- heptalpha/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- peg-solitaire/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- pentalpha-crossed-circle/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- reversi/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- hex/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- tavli/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- sokoban/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- go/build-ui/screenshot screenshots
       - name: Upload screenshots
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

@@ -94,12 +94,19 @@ static void test_opening(void)
     g_assert_cmpuint(result.nodes, ==, 0);
     g_assert_cmpuint(result.completed_depth, ==, 0);
     unsigned seen = 0;
-    for (unsigned i = 0; i < 512; i++) {
+    unsigned counts[9] = {0};
+    for (unsigned i = 0; i < 12000; i++) {
         int best = minimax_choose(&result, random);
         g_assert_cmpint(best, >=, 0);
         seen |= 1u << best;
+        counts[best]++;
     }
     g_assert_cmpuint(seen, ==, (1u << GAME_CHOICES) - 1);
+    for (unsigned cell = 0; cell < 9; cell++) {
+        unsigned expected = cell == 4 ? 4000 : 1000;
+        g_assert_cmpuint(counts[cell], >, expected * 8 / 10);
+        g_assert_cmpuint(counts[cell], <, expected * 12 / 10);
+    }
     for (unsigned move = 0; move < GAME_CHOICES; move++) {
         g_assert_true(result.legal[move]);
         g_assert_cmpfloat(result.values[move], ==, 0);

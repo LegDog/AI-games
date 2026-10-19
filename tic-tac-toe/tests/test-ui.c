@@ -341,9 +341,11 @@ static void test_ollama_controls(void)
             g_assert_false(app.turn_failed);
         }
     }
+    unsigned opening_calls = server.generate_calls;
     select_players(&app, PLAYER_OLLAMA, PLAYER_OLLAMA);
     wait_job(&app);
-    for (unsigned i = 0; i < 2; i++) {
+    g_assert_cmpuint(server.generate_calls, ==, opening_calls);
+    for (unsigned i = 0; i < 3; i++) {
         cancel_timer(&app);
         automatic_move(&app);
         wait_job(&app);
@@ -366,21 +368,27 @@ static void test_ollama_controls(void)
     server.body = "{\"done\":true,\"response\":\"{\\\"move\\\":0}\"}";
     select_players(&app, PLAYER_OLLAMA, PLAYER_HUMAN);
     wait_job(&app);
+    /* The opening is local random selection; test errors on the model's first
+     * decision, after a human reply. */
+    cancel_timer(&app);
+    automatic_move(&app);
+    play_cell(&app, app.game.cells[0][0] ? 1 : 0);
+    wait_job(&app);
     g_assert_true(app.turn_failed);
     g_assert_false(app.ready);
-    g_assert_cmpuint(app.game.moves, ==, 0);
+    g_assert_cmpuint(app.game.moves, ==, 2);
     g_assert_true(gtk_widget_get_visible(app.turn_error_box));
     g_assert_cmpuint(app.source, ==, 0);
     gtk_range_set_value(GTK_RANGE(app.scale), 0);
     drain_events();
     g_assert_null(app.task);
-    g_assert_cmpuint(app.game.moves, ==, 0);
+    g_assert_cmpuint(app.game.moves, ==, 2);
     server.auto_move = TRUE;
     retry_ollama(NULL, &app);
-    wait_moves(&app, 1);
+    wait_moves(&app, 3);
     g_assert_false(app.turn_failed);
     g_assert_false(gtk_widget_get_visible(app.turn_error_box));
-    g_assert_nonnull(strstr(app.history->str, "Tentativa Ollama antes da jogada 1"));
+    g_assert_nonnull(strstr(app.history->str, "Tentativa Ollama antes da jogada 3"));
     g_assert_nonnull(strstr(app.history->str, "modelo: a:1b"));
 
     /* Cancel a pending request and start a different session. No old move or
@@ -388,6 +396,8 @@ static void test_ollama_controls(void)
     server.delayed = TRUE;
     unsigned calls = server.calls;
     select_players(&app, PLAYER_OLLAMA, PLAYER_HUMAN);
+    wait_moves(&app, 1);
+    play_cell(&app, app.game.cells[0][0] ? 1 : 0);
     gint64 end = g_get_monotonic_time() + 5000000;
     while (server.calls == calls && g_get_monotonic_time() < end) {
         drain_events();

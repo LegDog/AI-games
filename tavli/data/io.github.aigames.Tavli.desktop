@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Tavli
+Comment=Play five Tavli variants with dice, matches, and automated players
+Comment[pt_BR]=Jogue cinco variantes de Tavli com dados, partidas e jogadores automatizados
+Exec=tavli
+Icon=io.github.aigames.Tavli
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

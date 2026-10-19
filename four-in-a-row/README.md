@@ -22,6 +22,18 @@ prefix or stage an installation. The GNOME application ID is
 `io.github.aigames.FourInARow`, the executable is `four-in-a-row`, and the English
 display name is **AI Games: Four in a Row**.
 
+## Rules
+
+Two players, **Red** and **Yellow**, play on an initially empty board with
+seven columns and six rows. Red starts, and players alternate dropping one
+disc into a column. Each disc falls to the lowest empty cell in that column;
+placed discs cannot be moved or removed. A full column cannot accept another
+disc, and selecting one does not use up the player's turn.
+
+The first player to form a horizontal, vertical, or diagonal line of four
+or more matching discs wins. If the board fills without a winning line, the
+game ends in a draw. Play stops as soon as either result is reached.
+
 ## Playing
 
 The board has seven columns and six rows. Click a column or use keys **1–7**,
@@ -31,10 +43,8 @@ the lowest empty cell. Full columns reject moves without changing the turn.
 Configure **Red** and **Yellow** independently as **Human**, **Positional**,
 **Minimax**, or **Ollama**. All 16 combinations are allowed. The defaults are
 human Red and positional Yellow; Red always starts. Red discs contain a cross
-and yellow discs a ring so they can be distinguished beyond color. Four or
-more matching pieces in a horizontal, vertical, or diagonal line win. All
-winning alignments are highlighted immediately. A full board without a winner
-is a draw.
+and yellow discs a ring so they can be distinguished beyond color. All
+winning alignments are highlighted immediately.
 
 The board preserves its 7:6 aspect ratio and square cells, centered in the
 largest available area below the column numbers. The slider sets the
@@ -252,7 +262,7 @@ not accepted.
 
 The interface remains responsive during requests. The delay remains a minimum
 turn time and overlaps generation. Model listing has a total deadline of
-100 seconds; each turn has 1,800 seconds (30 minutes), including model loading.
+1,000 seconds; each turn has 18,000 seconds (5 hours), including model loading.
 Connection failures, timeouts, and invalid responses **pause the game** while
 preserving the board. Use **Retry** to request a move for the same position,
 or **New configuration** to abandon the game. There is no fallback automated
@@ -333,7 +343,7 @@ reasoning uses the Cogito v1 protocol. It first requests analysis with
 generation to a JSON schema. It then sends the analysis to the same model in
 a second request to select the move using the JSON schema. Name recognition
 does not cover arbitrarily renamed models or Cogito 2.1. Requests share the
-turn's 1,800-second (30-minute) deadline and cancellation. Failure at either
+turn's 18,000-second (5-hour) deadline and cancellation. Failure at either
 stage pauses the game, without automatic substitution.
 
 The engine also validates the assistance filter: a legal response outside the
