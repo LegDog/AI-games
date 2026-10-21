@@ -75,6 +75,7 @@ static void log_exchange(const char *id, const char *event, const char *method,
                          const char *url, SoupMessage *message, GBytes *body,
                          gint64 started, const char *error) {
   g_autoptr(JsonObject) entry = json_object_new();
+    ollama_run_annotate(entry);
   g_autoptr(GDateTime) now = g_date_time_new_now_local();
   g_autofree char *timestamp =
       g_date_time_format(now, "%Y-%m-%dT%H:%M:%S.%f%:z");
@@ -182,7 +183,8 @@ static JsonObject *request_json(const char *base, const char *path,
   while (base_length && normalized[base_length - 1] == '/')
     normalized[--base_length] = 0;
   g_autofree char *url = g_strconcat(normalized, path, NULL);
-  g_autofree char *json = body ? serialize(body) : NULL;
+  ollama_run_request(path, body);
+    g_autofree char *json = body ? serialize(body) : NULL;
   g_autoptr(GBytes) sent = json ? g_bytes_new(json, strlen(json)) : NULL;
   g_autoptr(SoupMessage) message = soup_message_new(method, url);
   if (message && sent)
@@ -291,7 +293,8 @@ static JsonObject *request_json(const char *base, const char *path,
                         _("The Ollama response is not a JSON object."));
     return NULL;
   }
-  return json_object_ref(json_node_get_object(root));
+  ollama_run_response(path, json_node_get_object(root));
+    return json_object_ref(json_node_get_object(root));
 }
 
 static void log_operation_failure(const char *base, gint64 started,
@@ -552,71 +555,81 @@ static gboolean choose_turn(const Game *game, const char *model,
   g_autoptr(JsonObject) body = json_object_new();
   json_object_set_string_member(body, "model", model);
   json_object_set_boolean_member(body, "stream", FALSE);
-  guint timeout;
-  if (options->thinking && cogito_v1(model)) {
-    /* Legacy Cogito emits inline thinking. Let that stage generate freely;
-     * a second, ordinary call produces the schema-constrained decision. */
-    result->reasoning = OLLAMA_REASONING_COGITO;
-    json_object_set_string_member(body, "system",
-                                  "Enable deep thinking subroutine.");
-    g_autofree char *instruction =
-        g_strconcat(prompt,
-                    "\nThis is a separate analysis stage; do not apply "
-                    "final-answer formatting yet. Analyze the position and "
-                    "recommend an allowed move using explanatory text.",
-                    NULL);
-    json_object_set_string_member(body, "prompt", instruction);
-    timeout = remaining_time(started, timeout_ms, error);
-    if (!timeout)
-      return FALSE;
-    g_autoptr(JsonObject) reasoning =
-        request_json(url, "/api/generate", body, timeout, cancel, error);
-    if (!reasoning)
-      return FALSE;
-    const char *text = string_member(reasoning, "response");
-    if (!complete_response(reasoning) || !text || !*text) {
-      g_set_error_literal(
-          error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
-          _("The model did not complete the position analysis."));
-      return FALSE;
-    }
-    g_autofree char *combined =
-        g_strdup_printf("%s\nPrevious analysis from this model:\n%s\n"
-                        "Recheck its recommendation against the board and "
-                        "allowed choices. Return only the final JSON move.\n"
-                        "Response JSON schema: %s",
-                        prompt, text, schema_text);
-    json_object_set_string_member(body, "prompt", combined);
-    json_object_set_string_member(body, "system",
-                                  "Select the final legal move and output only "
-                                  "the requested JSON object.");
+  g_autoptr(JsonObject) response = NULL;
+  if (options->harness) {
+    int reasoning = 0;
+    response = ollama_harness_run(url, model, prompt, schema, options->thinking,
+                                  started, timeout_ms, cancel, request_json,
+                                  &reasoning, error);
+    result->reasoning = (OllamaReasoning)reasoning;
   } else {
-    if (options->thinking) {
-      g_autoptr(JsonObject) query = json_object_new();
-      json_object_set_string_member(query, "model", model);
+    guint timeout;
+    if (options->thinking && cogito_v1(model)) {
+      /* Legacy Cogito emits inline thinking. Let that stage generate freely;
+       * a second, ordinary call produces the schema-constrained decision. */
+      result->reasoning = OLLAMA_REASONING_COGITO;
+      json_object_set_string_member(body, "system",
+                                    "Enable deep thinking subroutine.");
+      g_autofree char *instruction =
+          g_strconcat(prompt,
+                      "\nThis is a separate analysis stage; do not apply "
+                      "final-answer formatting yet. Analyze the position and "
+                      "recommend an allowed move using explanatory text.",
+                      NULL);
+      json_object_set_string_member(body, "prompt", instruction);
       timeout = remaining_time(started, timeout_ms, error);
       if (!timeout)
         return FALSE;
-      g_autoptr(JsonObject) info =
-          request_json(url, "/api/show", query, timeout, cancel, error);
-      if (!info)
+      g_autoptr(JsonObject) reasoning =
+          request_json(url, "/api/generate", body, timeout, cancel, error);
+      if (!reasoning)
         return FALSE;
-      JsonNode *control = thinking_control(info);
-      if (control) {
-        json_object_set_member(body, "think", control);
-        result->reasoning = OLLAMA_REASONING_NATIVE;
+      const char *text = string_member(reasoning, "response");
+      if (!complete_response(reasoning) || !text || !*text) {
+        g_set_error_literal(
+            error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
+            _("The model did not complete the position analysis."));
+        return FALSE;
       }
+      g_autofree char *combined =
+          g_strdup_printf("%s\nPrevious analysis from this model:\n%s\n"
+                          "Recheck its recommendation against the board and "
+                          "allowed choices. Return only the final JSON move.\n"
+                          "Response JSON schema: %s",
+                          prompt, text, schema_text);
+      json_object_set_string_member(body, "prompt", combined);
+      json_object_set_string_member(
+          body, "system",
+          "Select the final legal move and output only "
+          "the requested JSON object.");
+    } else {
+      if (options->thinking) {
+        g_autoptr(JsonObject) query = json_object_new();
+        json_object_set_string_member(query, "model", model);
+        timeout = remaining_time(started, timeout_ms, error);
+        if (!timeout)
+          return FALSE;
+        g_autoptr(JsonObject) info =
+            request_json(url, "/api/show", query, timeout, cancel, error);
+        if (!info)
+          return FALSE;
+        JsonNode *control = thinking_control(info);
+        if (control) {
+          json_object_set_member(body, "think", control);
+          result->reasoning = OLLAMA_REASONING_NATIVE;
+        }
+      }
+      g_autofree char *instruction =
+          g_strdup_printf("%sResponse JSON schema: %s", prompt, schema_text);
+      json_object_set_string_member(body, "prompt", instruction);
     }
-    g_autofree char *instruction =
-        g_strdup_printf("%sResponse JSON schema: %s", prompt, schema_text);
-    json_object_set_string_member(body, "prompt", instruction);
+    json_object_set_object_member(body, "format", json_object_ref(schema));
+    timeout = remaining_time(started, timeout_ms, error);
+    if (!timeout)
+      return FALSE;
+    response = request_json(url, "/api/generate", body, timeout, cancel, error);
   }
-  json_object_set_object_member(body, "format", json_object_ref(schema));
-  timeout = remaining_time(started, timeout_ms, error);
-  if (!timeout)
-    return FALSE;
-  g_autoptr(JsonObject) response =
-      request_json(url, "/api/generate", body, timeout, cancel, error);
+
   if (!response || !move_from_object(game, response, &result->move, error))
     return FALSE;
   gboolean permitted = FALSE;
@@ -641,7 +654,9 @@ gboolean ollama_choose_with_options(const Game *game, const char *model,
   if (!options)
     options = &defaults;
   *result = (OllamaResult){.move = -1, .thinking_requested = options->thinking};
-  gint64 started = g_get_monotonic_time();
+  g_auto(OllamaRun) run = {0};
+    ollama_run_begin(&run, &result->run, options->harness);
+    gint64 started = g_get_monotonic_time();
   g_autofree char *id = g_uuid_string_random();
   OllamaTrace trace = {.id = id,
                        .operation = "choose_move",
@@ -666,6 +681,7 @@ gboolean ollama_choose_with_options(const Game *game, const char *model,
 
 void ollama_record(GString *history, const char *model,
                    const OllamaResult *result) {
+    ollama_run_record(history, &result->run);
   g_autofree char *safe = g_strescape(model ? model : "", NULL);
   g_string_append_printf(history,
                          "Ollama model: %s; pure; thinking: %s; reasoning: %u; "

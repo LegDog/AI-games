@@ -289,3 +289,6 @@
     {"First player", "Primeiro jogador", "Primer jugador", "Primo giocatore"},
     {"Second player", "Segundo jogador", "Segundo jugador", "Secondo giocatore"},
     {"Player", "Jogador", "Jugador", "Giocatore"},
+    {"Reasoning harness", "Harness de raciocínio", "Arnés de razonamiento", "Harness di ragionamento"},
+    {"The proposal exceeded 16 KiB. Retry with a shorter proposal.", "A proposta excedeu 16 KiB. Tente novamente com uma proposta mais curta.", "La propuesta superó 16 KiB. Reintenta con una propuesta más corta.", "La proposta ha superato 16 KiB. Riprova con una proposta più breve."},
+    {"The model did not complete a nonempty proposal. Retry the decision.", "O modelo não concluiu uma proposta não vazia. Tente a decisão novamente.", "El modelo no completó una propuesta no vacía. Reintenta la decisión.", "Il modello non ha completato una proposta non vuota. Riprova la decisione."},

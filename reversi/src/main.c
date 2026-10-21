@@ -2,6 +2,7 @@
 #include <adwaita.h>
 #include "../../tools/ui-panels.h"
 #include "../../tools/ollama-view.h"
+#include "../../tools/ollama-controls.h"
 #include <math.h>
 #include <glib/gstdio.h>
 #include "animation.h"
@@ -212,6 +213,7 @@ static void begin_clicked(GtkButton *widget,gpointer data)
     for(unsigned i=0;i<2;i++) {
         app->kinds[i]=gtk_drop_down_get_selected(GTK_DROP_DOWN(app->controllers[i]));app->options[i]=read_options(app,i);
         app->ollama_options[i].thinking=gtk_check_button_get_active(GTK_CHECK_BUTTON(app->thinking[i]));
+    app->ollama_options[i].harness=ui_ollama_harness_active(app->thinking[i]);
         GtkStringObject *model=gtk_drop_down_get_selected_item(GTK_DROP_DOWN(app->models[i]));g_free(app->selected_models[i]);
         app->selected_models[i]=g_strdup(model?gtk_string_object_get_string(model):"");
         if(app->kinds[i]==PLAYER_OLLAMA && !*app->selected_models[i]){set_error(app,_("Select an Ollama model first."));update(app);return;}
@@ -376,6 +378,7 @@ static void activate(GtkApplication *application,gpointer data)
         app->iteration_label[i]=label("MCTS iterations");gtk_box_append(GTK_BOX(sidebar),app->iteration_label[i]);app->iterations[i]=spin(sidebar,1,1000000,100,1000);
         app->model_label[i]=label("Ollama model");gtk_box_append(GTK_BOX(sidebar),app->model_label[i]);const char *empty[]={NULL};app->models[i]=gtk_drop_down_new_from_strings(empty);gtk_box_append(GTK_BOX(sidebar),app->models[i]);
         app->thinking[i]=gtk_check_button_new_with_label(_("Extended thinking"));g_object_set_data_full(G_OBJECT(app->thinking[i]),"message",g_strdup("Extended thinking"),g_free);gtk_box_append(GTK_BOX(sidebar),app->thinking[i]);
+    ui_ollama_harness_add(app->thinking[i],NULL,_("Reasoning harness"));
         g_signal_connect(app->controllers[i],"notify::selected",G_CALLBACK(configuration_changed),app);
     }
     app->refresh=button("Refresh models",G_CALLBACK(refresh_clicked),app);gtk_box_append(GTK_BOX(sidebar),app->refresh);

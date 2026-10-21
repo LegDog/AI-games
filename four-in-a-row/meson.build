@@ -16,7 +16,7 @@ if get_option('app')
   adw = dependency('libadwaita-1', version: '>=1.4', include_type: 'system')
   soup = dependency('libsoup-3.0', version: '>=3.0', include_type: 'system')
   json = dependency('json-glib-1.0', version: '>=1.6', include_type: 'system')
-  ollama = static_library('ollama', '../tools/ollama-events.c', 'src/ollama.c', dependencies: [engine_dep, soup, json])
+  ollama = static_library('ollama', '../tools/ollama-events.c', '../tools/ollama-harness.c', 'src/ollama.c', dependencies: [engine_dep, soup, json])
   ollama_dep = declare_dependency(link_with: ollama, dependencies: [engine_dep, soup, json])
   viewer=static_library('ollama-view','../tools/ollama-view.c',dependencies:[ollama_dep,gtk,adw])
   viewer_dep=declare_dependency(link_with:viewer,dependencies:[ollama_dep,gtk,adw])
@@ -36,4 +36,12 @@ if get_option('app')
     install_dir: get_option('datadir') / 'applications')
   install_data('data/io.github.aigames.FourInARow.svg',
     install_dir: get_option('datadir') / 'icons/hicolor/scalable/apps')
+endif
+
+if get_option('app')
+  test('ollama-harness-game',executable('test-ollama-harness-game','../tools/test-ollama-harness-game.c',include_directories:include_directories('tests'),c_args:['-DHARNESS_ASSISTED'],dependencies:ollama_dep),timeout:60)
+endif
+
+if get_option('app')
+  executable('ollama-harness-eval','../tools/ollama-harness-eval.c',include_directories:include_directories('tests'),dependencies:ollama_dep)
 endif

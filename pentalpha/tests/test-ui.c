@@ -1,8 +1,27 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui-fixture.h"
 #include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-controls.h"
 #include "../../tools/test-ollama-integration.h"
 #include "ollama-server.h"
+static void circle_after_label(void)
+{
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 256, 256);
+    cairo_t *cr = cairo_create(surface);
+    cairo_move_to(cr, 10, 20);
+    cairo_show_text(cr, "A");
+    circle(cr, 150, 150, 18);
+    cairo_set_line_width(cr, 3);
+    double x1, y1, x2, y2;
+    cairo_stroke_extents(cr, &x1, &y1, &x2, &y2);
+    /* Only the selection ring may be stroked, never a line from the label. */
+    g_assert_cmpfloat_with_epsilon(x1, 130.5, .01);
+    g_assert_cmpfloat_with_epsilon(y1, 130.5, .01);
+    g_assert_cmpfloat_with_epsilon(x2, 169.5, .01);
+    g_assert_cmpfloat_with_epsilon(y2, 169.5, .01);
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+}
 static void human_animation(App *app, gconstpointer data)
 {
     (void) data;
@@ -107,7 +126,7 @@ static void ollama_lifecycle(App *app, gconstpointer data)
 #include "test-end-pause.inc"
 static void stable_text_panels(App *app,gconstpointer data)
 {
-    (void)data;ui_assert_stable_text_panels(app->board);
+    (void)data;ui_assert_ollama_controls(app->board);
 }
 int main(int argc, char **argv)
 {
@@ -122,6 +141,7 @@ int main(int argc, char **argv)
     g_test_add("/ui/live-translations", App, NULL, ui_setup, translations, ui_teardown);
     g_test_add("/ui/ollama-cancellation-error", App, NULL, ui_setup, ollama_lifecycle, ui_teardown);
     g_test_add("/ui/pause-at-end",App,NULL,ui_setup,end_pause,ui_teardown);
+    g_test_add_func("/ui/circle-after-label", circle_after_label);
     int status = g_test_run();
     g_remove(GAME_HISTORY_FILE); g_remove("settings.ini"); g_chdir(old_directory); g_rmdir(test_directory); g_free(test_directory);
     return status;

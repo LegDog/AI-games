@@ -107,3 +107,17 @@ After `make GAME=gomoku test-ui`, run `gomoku/build-ui/screenshot screenshots`
 under the virtual display environment above. It captures `gomoku-configuration.png`,
 `gomoku-placement.png` (paused placement), and `gomoku-result.png` (completed
 plain Minimax versus alpha-beta at depth one).
+
+The shared viewer also captures labeled Propose/Review exchanges using mock
+messages: set `OLLAMA_VIEW_SCREENSHOT="$PWD/screenshots/ollama-harness.png"`
+and run `hex/build-ui/test-ollama-view -p /ollama-view/harness-stages` under the
+virtual display environment. This shows the real selectable text widget; the
+messages are mock data, not a live model's decisions.
+
+Royal Game of Ur: after `make GAME=royal-game-of-ur test-ui`, run
+`royal-game-of-ur/build-ui/screenshot screenshots` under the same virtual
+display wrapper to capture `royal-game-of-ur.png` from actual widgets.
+
+Senet: after `make GAME=senet test-ui`, run
+`senet/build-ui/screenshot screenshots` under the virtual display wrapper
+to capture `senet.png` from the actual application.

@@ -73,3 +73,8 @@ Go-Moku uses `gomoku-history.md`, `gomoku-ollama.log`, and
 `gomoku-ollama-error.log`. Histories include wins/draws, coordinate moves, seeds,
 per-side budgets, heuristic tables, and completed search depth/node/cutoff counts.
 Its Ollama messages window shares the existing observer and viewer.
+
+The [reasoning harness](ollama-harness.md) adds `harness` and `harness_stage`
+metadata to the existing exchange records. Raw request/response payloads and log
+paths remain intact. Histories include mode, generation counts and reported token
+totals; the messages window labels Propose and Review exchanges.

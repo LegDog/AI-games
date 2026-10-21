@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "../../tools/test-ollama-integration.h"
 #include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-controls.h"
 #include "ollama-server.h"
 #include "ui-fixture.h"
 static void humans(App *app) {
@@ -217,7 +218,7 @@ static void ollama_lifecycle(App *app, gconstpointer data) {
 }
 static void stable_text_panels(App *app, gconstpointer data) {
   (void)data;
-  ui_assert_stable_text_panels(app->board);
+  ui_assert_ollama_controls(app->board);
 }
 int main(int argc, char **argv) {
   g_setenv("OLLAMA_LOG_FILE", "/dev/null", TRUE);

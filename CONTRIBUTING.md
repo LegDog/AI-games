@@ -13,6 +13,7 @@ See [the README](README.md) for dependencies and build commands. From the root:
 make MESON_ARGS=-Dwerror=true
 make test
 make test-ollama MESON_ARGS=-Dwerror=true
+python3 scripts/test-ollama-harness-eval.py
 python3 scripts/test-tournament.py
 python3 scripts/test-pentalpha-runner.py
 python3 scripts/test-heptalpha-runner.py
@@ -25,6 +26,7 @@ python3 scripts/test-sokoban-runner.py
 python3 scripts/test-go-tournament.py
 python3 scripts/test-pentago-tournament.py
 python3 scripts/test-gomoku-tournament.py
+python3 scripts/test-senet-tournament.py
 python3 scripts/generate-pentalpha-crossed-circle-board.py --check
 python3 scripts/generate-heptalpha-board.py --check
 python3 scripts/test-audit-history.py
@@ -40,7 +42,7 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a dbus-run-session --
 
 Ollama protocol tests use a mock service; no model download is required. Local
 HTTP tests may skip when socket creation is blocked. Check the test log for
-skips before claiming full validation. CI runs all thirteen apps and the GUI tests on
+skips before claiming full validation. CI runs all fifteen apps and the GUI tests on
 Ubuntu with a virtual display.
 
 ## Games and algorithms
@@ -134,3 +136,22 @@ five-or-more wins and no forbidden moves. Plain Minimax and alpha-beta explore
 all empty intersections using identical evaluation and full root windows. The
 engine tests include an independent game replay and exhaustive search reference;
 `test-gomoku-tournament.py` independently checks exported CSV games.
+
+The optional reasoning harness uses shared orchestration with each game's own
+prompt, schema, transport and validator. Keep the direct path unchanged when it
+is off, and normalize harness+assistance to pure mode before generating choices.
+All stages share one deadline/token; Tavli also shares it across assembled turn
+decisions. Extend the mock adapter tests and public evaluation fixtures when
+changing decision formats. See [the harness guide](docs/ollama-harness.md).
+
+Royal Game of Ur uses private route squares 1–4 and 13–14, shared squares
+5–12, reserve 0, and exact exit 15. Roll and move are separate engine actions;
+forced pass is explicit. Expectiminimax weights dice sums 1:4:6:4:1 and preserves
+bonus turns. Keep real dice separate from controller randomness and check
+exported games with `python3 scripts/test-ur-tournament.py`.
+
+Senet implements a documented modern teaching reconstruction on a 30-house
+track. Preserve neighbor protection across row bends, exchanges, mandatory
+stop 26, water relocation, final-house exact exits, forced passes and stick
+probabilities 4:6:4:1:1. `scripts/test-senet-tournament.py` independently replays
+exported games. Tests and GUI must distinguish this ruleset from other reconstructions.

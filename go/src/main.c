@@ -6,6 +6,7 @@
 #include <adwaita.h>
 #include "../../tools/ui-panels.h"
 #include "../../tools/ollama-view.h"
+#include "../../tools/ollama-controls.h"
 #include <math.h>
 #include <string.h>
 typedef struct App App;
@@ -13,7 +14,7 @@ typedef struct {
   Game game;
   PlayerKind kind;
   SearchOptions options;
-  gboolean list, thinking;
+  gboolean list, thinking, harness;
   unsigned generation;
   guint32 seed;
   gsize history_length;
@@ -190,7 +191,7 @@ static void worker(GTask *task, gpointer source, gpointer data,
                               : G_IO_ERROR_FAILED,
                           search_status_name(j->result.status));
   } else {
-    OllamaOptions options = {.thinking = j->thinking};
+    OllamaOptions options = {.thinking = j->thinking, .harness=j->harness};
     if (ollama_choose_with_options(&j->game, j->model, j->url,
                                    OLLAMA_MOVE_TIMEOUT_MS, cancel, &options,
                                    &j->ollama, &j->error))
@@ -275,6 +276,7 @@ static void launch(App *a, gboolean list) {
   j->model = g_strdup(item ? gtk_string_object_get_string(item) : "");
   j->thinking =
       gtk_check_button_get_active(GTK_CHECK_BUTTON(a->thinking[color]));
+  j->harness=ui_ollama_harness_active(a->thinking[color]);
   a->cancel = g_cancellable_new();
   if(!list && j->kind==PLAYER_OLLAMA)ollama_view_bind(GTK_WINDOW(a->window),a->cancel,color==BLACK?_("Black"):_("White"),a->game.history->len,j->model);
   a->task = g_task_new(NULL, a->cancel, done, app_ref(a));
@@ -852,6 +854,7 @@ static App *create_app(GtkApplication *application) {
     g_object_set_data(G_OBJECT(a->thinking[c]), "translation",
                       "Enable thinking");
     gtk_box_append(GTK_BOX(a->model_settings[c]), a->thinking[c]);
+    ui_ollama_harness_add(a->thinking[c],NULL,_("Reasoning harness"));
   }
   a->komi = spin(side, "White komi", 0, 20, .5, 7.5);
   a->action_limit = spin(side, "Whole-game action limit", 1, 100000, 100, 1000);

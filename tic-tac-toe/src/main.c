@@ -2,6 +2,7 @@
 #include <adwaita.h>
 #include "../../tools/ui-panels.h"
 #include "../../tools/ollama-view.h"
+#include "../../tools/ollama-controls.h"
 #include <math.h>
 #include <string.h>
 #include "game.h"
@@ -208,7 +209,7 @@ static void play_cell(App *app, unsigned move)
     game_record(app->history, &app->game, scores, move, kind);
     if (kind == PLAYER_MINIMAX)
         minimax_record(app->history, &app->prepared_minimax);
-    if (kind == PLAYER_OLLAMA && app->game.moves == 0)
+    if (kind == PLAYER_OLLAMA && app->game.moves == 0 && !current_player(app).ollama_harness)
         g_string_append(app->history, "Abertura aleatória: centro, lados e cantos com probabilidade 1/3 cada.\n\n");
     else if (kind == PLAYER_OLLAMA)
         ollama_record(app->history, current_player(app).model, &app->prepared_ollama);
@@ -305,11 +306,11 @@ static void turn_worker(GTask *task, gpointer source, gpointer task_data, GCance
             job->chosen = minimax_choose(&job->minimax, random);
             job->minimax.best_move = job->chosen;
         }
-    } else if (ok && job->game.moves == 0) {
+    } else if (ok && job->game.moves == 0 && !(job->player.kind == PLAYER_OLLAMA && job->player.ollama_harness)) {
         job->chosen = game_best_move(job->scores);
     } else if (ok && job->player.kind == PLAYER_OLLAMA) {
         GError *error = NULL;
-        OllamaOptions options = {.assisted = job->player.ollama_assisted, .thinking = job->player.ollama_thinking};
+        OllamaOptions options = {.assisted = job->player.ollama_assisted, .thinking = job->player.ollama_thinking, .harness=job->player.ollama_harness};
         ok = ollama_choose_with_options(&job->game, job->player.model, job->ollama_url,
                            OLLAMA_MOVE_TIMEOUT_MS, cancel, &options, &job->ollama, &error);
         if (!ok) {
@@ -435,6 +436,7 @@ static void begin_clicked(GtkButton *button, gpointer data)
         app->players[i].depth = (unsigned) gtk_range_get_value(GTK_RANGE(app->depth_scales[i]));
         app->players[i].ollama_assisted = gtk_check_button_get_active(app->assist_checks[i]);
         app->players[i].ollama_thinking = gtk_check_button_get_active(app->thinking_checks[i]);
+        app->players[i].ollama_harness=ui_ollama_harness_active(GTK_WIDGET(app->thinking_checks[i]));
     }
     start_game(app);
 }
@@ -765,6 +767,7 @@ static GtkWidget *make_configuration(App *app)
             "Requests thinking supported by the model. Cogito uses separate analysis and decision requests. This may take longer; unchecked uses the model default.");
         gtk_box_append(GTK_BOX(app->ollama_options[i]), GTK_WIDGET(app->assist_checks[i]));
         gtk_box_append(GTK_BOX(app->ollama_options[i]), GTK_WIDGET(app->thinking_checks[i]));
+        ui_ollama_harness_add(GTK_WIDGET(app->thinking_checks[i]),GTK_WIDGET(app->assist_checks[i]),_("Reasoning harness"));
         gtk_box_append(GTK_BOX(box), app->ollama_options[i]);
         gtk_widget_set_visible(app->ollama_options[i], FALSE);
         g_signal_connect(app->models[i], "notify::selected", G_CALLBACK(model_changed), app);

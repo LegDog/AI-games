@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Senet
+Comment=Race five pieces through the houses of a modern Senet reconstruction
+Exec=senet
+Icon=io.github.aigames.Senet
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

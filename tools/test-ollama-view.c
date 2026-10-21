@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "ollama-harness.h"
 #include "ollama-view.h"
 #include <math.h>
 #include <string.h>
@@ -301,6 +302,40 @@ static void contrast(Fixture *f, gconstpointer data) {
     gdk_rgba_free(color);
   }
 }
+static void harness_stages(Fixture *f, gconstpointer data) {
+  (void)data;
+  gtk_drop_down_set_selected(GTK_DROP_DOWN(f->first), 1);
+  ollama_view_begin(f->parent);
+  g_autoptr(GCancellable) operation = g_cancellable_new();
+  ollama_view_bind(f->parent, operation, "Black", 1, "mock:1b");
+  OllamaRunStats stats;
+  g_auto(OllamaRun) run = {0};
+  ollama_run_begin(&run, &stats, TRUE);
+  g_autoptr(JsonObject) body = json_object_new();
+  json_object_set_string_member(body, "prompt",
+                                "Original board. Choose a legal move.");
+  run.stage = "Propose";
+  ollama_event_request(operation, "proposal", "/api/generate", body);
+  emit_reply(operation,
+             "{\"thinking\":\"Check immediate threats.\",\"response\":\"I "
+             "propose the center.\",\"done\":true}");
+  run.stage = "Review";
+  ollama_event_request(operation, "review", "/api/generate", body);
+  emit_reply(operation,
+             "{\"response\":\"{\\\"move\\\":\\\"h8\\\"}\",\"done\":true}");
+  pump();
+  GtkWindow *window = secondary(f);
+  g_assert_nonnull(window);
+  g_autofree char *text = contents(window);
+  g_assert_nonnull(strstr(text, "Propose\n"));
+  g_assert_nonnull(strstr(text, "Review\n"));
+  g_assert_nonnull(strstr(text, "Received · Black"));
+  g_assert_nonnull(strstr(text, "Thinking · Black"));
+  GtkWidget *copy = find(GTK_WIDGET(window), GTK_TYPE_BUTTON, "Copy all");
+  g_signal_emit_by_name(copy, "clicked");
+  assert_clipboard(find(GTK_WIDGET(window), GTK_TYPE_TEXT_VIEW, NULL), text);
+  maybe_screenshot(window);
+}
 int main(int argc, char **argv) {
   g_test_init(&argc, &argv, NULL);
   gtk_init();
@@ -310,5 +345,7 @@ int main(int argc, char **argv) {
   g_test_add("/ollama-view/follow-and-reading", Fixture, NULL, setup, scrolling,
              teardown);
   g_test_add("/ollama-view/contrast", Fixture, NULL, setup, contrast, teardown);
+  g_test_add("/ollama-view/harness-stages", Fixture, NULL, setup,
+             harness_stages, teardown);
   return g_test_run();
 }

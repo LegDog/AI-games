@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: The Royal Game of Ur
+Comment=Race seven pieces with dice, rosettes and captures
+Exec=royal-game-of-ur
+Icon=io.github.aigames.RoyalGameOfUr
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

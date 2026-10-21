@@ -2,6 +2,7 @@
 #include <adwaita.h>
 #include "../../tools/ui-panels.h"
 #include "../../tools/ollama-view.h"
+#include "../../tools/ollama-controls.h"
 #include <math.h>
 #include <glib/gstdio.h>
 #include "animation.h"
@@ -411,7 +412,7 @@ static void begin_clicked(GtkButton *button_widget, gpointer data)
     app->kind = gtk_drop_down_get_selected(GTK_DROP_DOWN(app->controller));
     app->search_depth = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(app->depth));
     app->options = (OllamaOptions) {.assisted = gtk_check_button_get_active(GTK_CHECK_BUTTON(app->assisted)),
-        .thinking = gtk_check_button_get_active(GTK_CHECK_BUTTON(app->thinking))};
+        .thinking = gtk_check_button_get_active(GTK_CHECK_BUTTON(app->thinking)), .harness=ui_ollama_harness_active(app->thinking)};
     g_clear_pointer(&app->selected_model, g_free);
     GtkStringObject *model = gtk_drop_down_get_selected_item(GTK_DROP_DOWN(app->model));
     app->selected_model = g_strdup(model ? gtk_string_object_get_string(model) : "");
@@ -697,6 +698,7 @@ static void activate(GtkApplication *application, gpointer data)
     app->refresh = button("Refresh models", G_CALLBACK(refresh_clicked), app); gtk_box_append(GTK_BOX(sidebar), app->refresh);
     app->assisted = check("Search assistance"); gtk_box_append(GTK_BOX(sidebar), app->assisted);
     app->thinking = check("Extended thinking"); gtk_box_append(GTK_BOX(sidebar), app->thinking);
+    ui_ollama_harness_add(app->thinking,app->assisted,_("Reasoning harness"));
     gtk_box_append(GTK_BOX(sidebar), label("Animation delay (seconds)"));
     app->delay = gtk_spin_button_new_with_range(0, 3, .1); gtk_spin_button_set_digits(GTK_SPIN_BUTTON(app->delay), 1);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(app->delay), .5); gtk_box_append(GTK_BOX(sidebar), app->delay);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "../../tools/ollama-view.h"
+#include "../../tools/ollama-controls.h"
 #include "../../tools/ui-panels.h"
 #include "animation.h"
 #include "i18n.h"
@@ -450,6 +451,7 @@ static void begin_clicked(GtkButton *widget, gpointer data) {
     app->options[i] = read_options(app, i);
     app->ollama_options[i].thinking =
         gtk_check_button_get_active(GTK_CHECK_BUTTON(app->thinking[i]));
+    app->ollama_options[i].harness=ui_ollama_harness_active(app->thinking[i]);
     GtkStringObject *model =
         gtk_drop_down_get_selected_item(GTK_DROP_DOWN(app->models[i]));
     g_free(app->selected_models[i]);
@@ -965,6 +967,7 @@ static void activate(GtkApplication *application, gpointer data) {
     g_object_set_data_full(G_OBJECT(app->thinking[i]), "message",
                            g_strdup("Extended thinking"), g_free);
     gtk_box_append(GTK_BOX(sidebar), app->thinking[i]);
+    ui_ollama_harness_add(app->thinking[i],NULL,_("Reasoning harness"));
     g_signal_connect(app->controllers[i], "notify::selected",
                      G_CALLBACK(configuration_changed), app);
   }

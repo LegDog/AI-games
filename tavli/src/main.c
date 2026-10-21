@@ -2,6 +2,7 @@
 #include <adwaita.h>
 #include "../../tools/ui-panels.h"
 #include "../../tools/ollama-view.h"
+#include "../../tools/ollama-controls.h"
 #include <math.h>
 #include <glib/gstdio.h>
 #include "animation.h"
@@ -92,6 +93,7 @@ static void begin_clicked(GtkButton *button_widget,gpointer data)
     game_init(&app->game,v,mode,gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(app->target)));
     for(int p=0;p<2;p++) {
         app->kinds[p]=gtk_drop_down_get_selected(GTK_DROP_DOWN(app->controllers[p]));app->options[p]=read_options(app,p);app->reasoning[p].thinking=gtk_check_button_get_active(GTK_CHECK_BUTTON(app->thinking[p]));
+    app->reasoning[p].harness=ui_ollama_harness_active(app->thinking[p]);
         GtkStringObject *model=gtk_drop_down_get_selected_item(GTK_DROP_DOWN(app->models[p]));g_free(app->selected_models[p]);app->selected_models[p]=g_strdup(model?gtk_string_object_get_string(model):"");
         if(app->kinds[p]==PLAYER_OLLAMA && !*app->selected_models[p]){set_error(app,_("Select an Ollama model first."));update(app);return;}
     }
@@ -476,6 +478,7 @@ static void activate(GtkApplication *application,gpointer data)
         app->iteration_label[p]=label("MCTS iterations");gtk_box_append(GTK_BOX(sidebar),app->iteration_label[p]);app->iterations[p]=spin(sidebar,1,1000000,100,1000);
         app->model_label[p]=label("Ollama model");gtk_box_append(GTK_BOX(sidebar),app->model_label[p]);const char *empty[]={NULL};app->models[p]=gtk_drop_down_new_from_strings(empty);gtk_box_append(GTK_BOX(sidebar),app->models[p]);
         app->thinking[p]=gtk_check_button_new_with_label(_("Extended thinking"));g_object_set_data_full(G_OBJECT(app->thinking[p]),"message",g_strdup("Extended thinking"),g_free);gtk_box_append(GTK_BOX(sidebar),app->thinking[p]);
+    ui_ollama_harness_add(app->thinking[p],NULL,_("Reasoning harness"));
     }
     app->refresh=button("Refresh models",G_CALLBACK(refresh_clicked),app);gtk_box_append(GTK_BOX(sidebar),app->refresh);
     app->seconds_label=label("Planning seconds (0: unlimited)");gtk_box_append(GTK_BOX(sidebar),app->seconds_label);app->seconds=spin(sidebar,0,18000,1,5);

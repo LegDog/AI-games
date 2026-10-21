@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ollama-events.h"
+#include "ollama-harness.h"
 #include <string.h>
 typedef struct {
   OllamaMessageFunc callback;
@@ -27,8 +28,13 @@ static Observer *observer_for(GCancellable *operation) {
 }
 static void emit(Observer *observer, OllamaMessageKind kind, const char *id,
                  const char *text) {
-  if (observer && observer->callback && text && *text)
-    observer->callback(kind, id ? id : "", text, observer->data);
+  if (observer && observer->callback && text && *text) {
+    const char *stage = ollama_run_stage();
+    g_autofree char *staged =
+        stage ? g_strdup_printf("%s\n%s", stage, text) : NULL;
+    observer->callback(kind, id ? id : "", staged ? staged : text,
+                       observer->data);
+  }
 }
 static const char *text_member(JsonObject *object, const char *key) {
   JsonNode *node = json_object_get_member(object, key);
@@ -107,8 +113,9 @@ void ollama_event_response(GCancellable *operation, const char *id,
     g_autofree char *reply = split_thinking(observer, id, answer, thinking);
     if (*reply) {
       g_autofree char *formatted = pretty(reply);
-      emit(observer, analysis ? OLLAMA_THINKING : OLLAMA_RECEIVED, id,
-           formatted);
+      emit(observer,
+           analysis && !ollama_run_stage() ? OLLAMA_THINKING : OLLAMA_RECEIVED,
+           id, formatted);
     }
   } else {
     g_autofree char *formatted =

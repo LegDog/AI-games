@@ -5,6 +5,7 @@
 #undef main
 #include "ollama-server.h"
 #include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-controls.h"
 #include "../../tools/test-ollama-integration.h"
 
 static void drain_events(void)
@@ -65,7 +66,7 @@ static void test_controls(void)
         g_assert_cmpfloat(gtk_range_get_value(GTK_RANGE(app.depth_scales[i])), ==, DEFAULT_MINIMAX_DEPTH);
     }
     select_players(&app, PLAYER_HUMAN, PLAYER_HUMAN);
-    ui_assert_stable_text_panels(app.board);
+    ui_assert_ollama_controls(app.board);
     for (unsigned first = 0; first < 3; first++) {
         for (unsigned second = 0; second < 3; second++) {
             select_players(&app, first, second);
@@ -417,6 +418,17 @@ static void test_ollama_controls(void)
     g_assert_null(strstr(app.history->str, "Ollama"));
     server.delayed = FALSE;
     configure_clicked(NULL, &app);
+    GtkWidget *harness=g_object_get_data(G_OBJECT(app.thinking_checks[0]),"ollama-harness");
+    gtk_check_button_set_active(GTK_CHECK_BUTTON(harness),TRUE);
+    unsigned harness_calls=server.generate_calls;
+    select_players(&app,PLAYER_OLLAMA,PLAYER_HUMAN);
+    wait_moves(&app,1);
+    g_assert_false(app.turn_failed);
+    g_assert_true(app.prepared_ollama.run.harness);
+    g_assert_cmpuint(server.generate_calls,==,harness_calls+2);
+    g_assert_nonnull(strstr(app.history->str,"Reasoning harness: propose-review"));
+    configure_clicked(NULL,&app);
+    gtk_check_button_set_active(GTK_CHECK_BUTTON(harness),FALSE);
     gtk_drop_down_set_selected(app.controllers[0], PLAYER_OLLAMA);
     server.body = "{\"models\":[]}";
     refresh_models_clicked(NULL, &app);

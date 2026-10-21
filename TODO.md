@@ -31,8 +31,12 @@
 - [x] **Pentago** — [Implemented](pentago/README.md): standard 6×6 rotating
   board, plain Minimax versus alpha-beta, weak/strong presets and custom limits,
   Human, Random, Heuristic, pure Ollama, animated turns, and replayable tournaments.
-- [ ] **The Royal Game of Ur**.
-- [ ] **Senet**.
+- [x] **The Royal Game of Ur** — [Implemented](royal-game-of-ur/README.md): seven-piece
+  race, four binary dice, safe central rosette, captures, exact bearing off,
+  Human, Random, Heuristic, Expectiminimax, pure Ollama, and seeded experiments.
+- [x] **Senet** — [Implemented](senet/README.md): modern five-piece teaching
+  reconstruction, throwing sticks, protected neighbors, exchange captures,
+  special houses, Human, Random, Heuristic, Expectiminimax, and pure Ollama.
 - [ ] **Ludus Coriovalli / Roman Blocking Games**.
 - [ ] **Nine Men’s Morris**.
 - [ ] **Alquerque**.
@@ -42,3 +46,4 @@
   pure Ollama, animated placements, and replayable tournaments.
 - [ ] **Fox and Geese**, including traditional variants such as **Halatafl**.
 - [ ] **Tafl Games (Viking Chess / Hnefatafl)**.
+- [ ] Kaooa (The Vulture and the Crows)

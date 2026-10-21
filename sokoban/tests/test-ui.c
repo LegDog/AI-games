@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui-fixture.h"
 #include "../../tools/test-ui-panels.h"
+#include "../../tools/test-ollama-controls.h"
 #include "../../tools/test-ollama-integration.h"
 #include <libsoup/soup.h>
 static void human(void) {
@@ -183,7 +184,7 @@ static void stable_text_panels(void)
 {
     App *a=fixture();
     if(a->tick){g_source_remove(a->tick);a->tick=0;}
-    ui_assert_stable_text_panels(a->board);dispose(a);
+    ui_assert_ollama_controls(a->board);dispose(a);
 }
 int main(int argc, char **argv) {
   g_setenv("OLLAMA_LOG_FILE", "/dev/null", TRUE);

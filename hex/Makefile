@@ -43,7 +43,7 @@ test-ui:
 	$(MESON) test -C "$(UI_BUILD_DIR)" --print-errorlogs
 
 test-ollama: build
-	$(MESON) test -C "$(BUILD_DIR)" --print-errorlogs ollama ollama-log
+	$(MESON) test -C "$(BUILD_DIR)" --print-errorlogs ollama ollama-log ollama-harness-game ollama-harness
 
 install: build
 	DESTDIR="$(DESTDIR)" $(MESON) install -C "$(BUILD_DIR)"

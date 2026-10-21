@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include "../../tools/ollama-events.h"
+#include "../../tools/ollama-harness.h"
 #include "game.h"
 #include <gio/gio.h>
 #define OLLAMA_DEFAULT_LOG_FILE GAME_ID "-ollama.log"
@@ -9,6 +10,7 @@
 enum { OLLAMA_LIST_TIMEOUT_MS = 1000000, OLLAMA_MOVE_TIMEOUT_MS = 18000000 };
 typedef struct {
   gboolean thinking;
+  gboolean harness;
 } OllamaOptions;
 typedef enum {
   OLLAMA_REASONING_DEFAULT,
@@ -24,6 +26,7 @@ typedef struct {
   gboolean thinking_requested;
   unsigned allowed;
   OllamaReasoning reasoning;
+  OllamaRunStats run;
 } OllamaResult;
 char **ollama_list_models(const char *url, guint timeout_ms,
                           GCancellable *cancel, GError **error);

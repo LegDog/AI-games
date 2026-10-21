@@ -7,6 +7,7 @@
 #include <adwaita.h>
 #include "../../tools/ui-panels.h"
 #include "../../tools/ollama-view.h"
+#include "../../tools/ollama-controls.h"
 #include <math.h>
 #include <string.h>
 typedef struct App App;
@@ -15,7 +16,7 @@ typedef struct {
   Game game;
   PlayerKind kind;
   SearchLimits limits;
-  gboolean thinking, list, pruning;
+  gboolean thinking, list, pruning, harness;
   unsigned generation;
   guint32 seed;
   char *url, *model;
@@ -191,7 +192,7 @@ static void worker(GTask *task, gpointer source, gpointer data,
     SearchControl c = {worker_cancelled, progress, &p};
     j->result = search_solve(&j->game, j->kind, &j->limits, &c, j->seed);
   } else if (j->kind == PLAYER_OLLAMA) {
-    OllamaOptions options = {.thinking = j->thinking};
+    OllamaOptions options = {.thinking = j->thinking, .harness=j->harness};
     ollama_choose_with_options(&j->game, j->model, j->url,
                                OLLAMA_MOVE_TIMEOUT_MS, cancel, &options,
                                &j->model_result, &j->error);
@@ -302,6 +303,7 @@ static void launch(App *a, gboolean list) {
       gtk_drop_down_get_selected_item(GTK_DROP_DOWN(a->model));
   j->model = g_strdup(item ? gtk_string_object_get_string(item) : "");
   j->thinking = gtk_check_button_get_active(GTK_CHECK_BUTTON(a->thinking));
+  j->harness=ui_ollama_harness_active(a->thinking);
   a->cancel = g_cancellable_new();
   if(!list && j->kind==PLAYER_OLLAMA)ollama_view_bind(GTK_WINDOW(a->window),a->cancel,_("Player"),a->sequence->len+1,j->model);
   g_string_append_printf(a->history,
@@ -766,6 +768,7 @@ static void update(App *a) {
   gtk_widget_set_sensitive(a->refresh, !a->task && !a->playing);
   gtk_widget_set_sensitive(a->url, !a->playing);
   gtk_widget_set_sensitive(a->model, !a->playing);
+  gtk_widget_set_sensitive(a->thinking, !a->playing);
   gtk_widget_set_sensitive(a->seconds, !a->playing || a->failed);
   gtk_widget_set_sensitive(a->memory, !a->playing || a->failed);
   gtk_widget_set_sensitive(a->pruning, !a->playing || a->failed);
@@ -914,6 +917,7 @@ static App *create_app(GtkApplication *application) {
   gtk_box_append(GTK_BOX(a->ollama_settings), a->model);
   a->thinking = gtk_check_button_new_with_label(_("Enable thinking"));
   gtk_box_append(GTK_BOX(a->ollama_settings), a->thinking);
+  ui_ollama_harness_add(a->thinking,NULL,_("Reasoning harness"));
   g_object_set_data(G_OBJECT(a->thinking), "translation", "Enable thinking");
   a->begin = button(side, "Begin", G_CALLBACK(begin_clicked), a);
   a->pause = button(side, "Pause", G_CALLBACK(pause_clicked), a);

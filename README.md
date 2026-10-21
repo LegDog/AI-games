@@ -5,7 +5,7 @@ playing games. We may add more games and algorithms soon. Contributions are
 welcome—feel free to contribute new games, algorithms, experiments, or improvements.
 English is the primary language for project documentation and contributions.
 
-The repository currently contains thirteen independent GNOME applications written
+The repository currently contains fifteen independent GNOME applications written
 in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 
 - [Tic-Tac-Toe](tic-tac-toe/README.md): a 3×3 board, mouse and numeric keypad controls.
@@ -21,6 +21,10 @@ in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 - [AI Games: Pentago](pentago/README.md): rotating 6×6 board with Human, Random, Heuristic, plain Minimax, alpha-beta, pure Ollama, and weak/strong search presets.
 - [AI Games: Reversi](reversi/README.md): standard 8×8 disc-flipping game with Human, Random, Positional, Minimax, MCTS, and pure Ollama players.
 - [AI Games: Go-Moku](gomoku/README.md): freestyle 15×15 five in a row, Human, Random, Heuristic, plain Minimax, alpha-beta, pure Ollama, and weak/strong search presets.
+
+- [AI Games: The Royal Game of Ur](royal-game-of-ur/README.md): seven-piece dice race, safe rosettes, captures, Human, Random, Heuristic, Expectiminimax, and pure Ollama.
+
+- [AI Games: Senet](senet/README.md): modern five-piece reconstruction with throwing sticks, protected neighbors, exchange captures, special houses, Heuristic, Expectiminimax, and pure Ollama.
 
 Each directory contains its own engine, interface, tests, Makefile, Meson
 project, installation resources, and license copy. Within this checkout, each application can be
@@ -69,6 +73,8 @@ make GAME=sokoban run                 # launch Sokoban
 make GAME=go run                      # launch Go (go-game)
 make GAME=pentago run                 # launch Pentago
 make GAME=gomoku run                  # launch Go-Moku
+make GAME=royal-game-of-ur run         # launch The Royal Game of Ur
+make GAME=senet run                    # launch Senet
 make GAME=four-in-a-row                # build only Four in a Row
 make test                         # test all engines without a display
 make GAME=four-in-a-row test           # test one engine
@@ -133,6 +139,13 @@ addition to GTK and libadwaita. `make test-ollama` tests the clients;
 libraries. See each game's README for configuration, error handling, and
 history details.
 
+All fifteen games also offer an optional **Reasoning harness** (off by default):
+the selected model proposes a decision, then independently reviews it against the
+original position. This remains pure Ollama play and is mutually exclusive with
+tactical assistance. The messages window labels both stages. See the
+[harness guide](docs/ollama-harness.md) for behavior, limits and matched model
+comparisons; improvement in playing strength must be measured.
+
 All Ollama communication is appended to `<game>-ollama.log` in the working directory,
 including prompts, complete responses, and `thinking` when returned by the
 model. The format is JSON Lines; `OLLAMA_LOG_FILE` overrides the path.
@@ -177,6 +190,8 @@ Default output files are separate even when multiple games run in the same direc
 | Go | `go-history.md` | `go-ollama.log` | `go-ollama-error.log` |
 | Pentago | `pentago-history.md` | `pentago-ollama.log` | `pentago-ollama-error.log` |
 | Go-Moku | `gomoku-history.md` | `gomoku-ollama.log` | `gomoku-ollama-error.log` |
+| The Royal Game of Ur | `royal-game-of-ur-history.md` | `royal-game-of-ur-ollama.log` | `royal-game-of-ur-ollama-error.log` |
+| Senet | `senet-history.md` | `senet-ollama.log` | `senet-ollama-error.log` |
 
 Each JSON log entry also includes its game ID, and each saved game history
 heading includes its game name. Existing files keep their original names and

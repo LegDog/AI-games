@@ -129,3 +129,30 @@ side and `--node-limit` for deterministic bounded comparisons. Both searches
 consider every empty intersection. `python3 scripts/test-gomoku-tournament.py`
 independently replays exported games and checks reproducibility and limits.
 See [Go-Moku](../gomoku/README.md).
+
+## Ollama reasoning harness
+
+Every application build supplies `ollama-harness-eval`, comparing direct and
+Propose/Review decisions on fixed public positions with matched generation
+settings and total deadlines. JSONL exports include legality, failures, time,
+tokens, choices and immediate outcomes. See [the harness guide](ollama-harness.md)
+for commands, fixture definitions and interpretation limits. CI validates the
+reporting path with mocks rather than making live model requests.
+
+## The Royal Game of Ur
+
+`royal-game-of-ur/build/tournament --seed 2718 --games 20 --depth 1`
+compares Heuristic with Random. Depth 2–3 enables Expectiminimax; `--swap`
+exchanges seats. CSV records all rolls and source positions; winner 0 means
+the action limit was reached. Validate with `python3 scripts/test-ur-tournament.py`.
+Real dice and controller random streams are independent. See the
+[game README](../royal-game-of-ur/README.md) for rules, weights and limits.
+
+## Senet
+
+`senet/build/tournament --seed 31415 --games 20 --depth 1` compares
+Heuristic with Random. Depth 2–3 enables Expectiminimax; `--swap` exchanges seats.
+CSV includes every player, throw, and source house. Winner 0 means the action
+limit was reached. Run `python3 scripts/test-senet-tournament.py` to independently
+replay both seat orders. Record the teaching ruleset from the
+[README](../senet/README.md) when comparing experiments.
