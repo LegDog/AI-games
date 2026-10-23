@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Ludus Coriovalli
+Comment=Compare strategies on a candidate Roman blocking game
+Exec=ludus-coriovalli
+Icon=io.github.aigames.LudusCoriovalli
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

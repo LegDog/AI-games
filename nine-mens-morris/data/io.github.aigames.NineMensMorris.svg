@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<rect x="4" y="4" width="120" height="120" rx="24" fill="#d2c7ab"/>
+<path d="M20 20H108V108H20ZM34 34H94V94H34ZM48 48H80V80H48ZM64 20V48M108 64H80M64 108V80M20 64H48" fill="none" stroke="#36474b" stroke-width="3"/>
+<g fill="#f5e1ae" stroke="#36474b" stroke-width="2"><circle cx="20" cy="20" r="7"/><circle cx="64" cy="20" r="7"/><circle cx="108" cy="20" r="7"/></g>
+<g fill="#376388" stroke="#36474b" stroke-width="2"><circle cx="34" cy="94" r="7"/><circle cx="64" cy="94" r="7"/><circle cx="94" cy="64" r="7"/></g>
+</svg>

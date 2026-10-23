@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Nine Men’s Morris
+Comment=Compare strategies in the mill-forming board game
+Exec=nine-mens-morris
+Icon=io.github.aigames.NineMensMorris
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

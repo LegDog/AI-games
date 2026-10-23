@@ -156,3 +156,24 @@ CSV includes every player, throw, and source house. Winner 0 means the action
 limit was reached. Run `python3 scripts/test-senet-tournament.py` to independently
 replay both seat orders. Record the teaching ruleset from the
 [README](../senet/README.md) when comparing experiments.
+
+## Ludus Coriovalli
+
+`ludus-coriovalli/build/tournament --seed 2718 --matches 10 --depth 3 --limit 20`
+compares alpha-beta with Random in paired role-swapping rounds. `--plain` uses
+plain Minimax and `--swap` exchanges controllers. CSV includes survival scores,
+capped flags, and every round/player/edge action. Run
+`python3 scripts/test-coriovalli-tournament.py` for independent replay. Capped
+survival is censored; tied scores are administrative draws. Report the exact
+[candidate ruleset](../ludus-coriovalli/README.md), depth, node budget and cap.
+
+## Nine Men’s Morris
+
+`nine-mens-morris/build/tournament --games 20 --seed 2026 --depth 3 --budget 50000`
+compares alpha-beta with Random. `--plain` uses plain Minimax; `--swap` exchanges
+seats. CSV includes requested depth, node budget, winner, termination reason and
+complete placement/movement/capture turns. Draws use threefold repetition or 50
+individual movement turns without capture. Run `python3 scripts/test-morris-tournament.py`
+for independent coordinate-based replay and seed reproducibility. Record revision,
+seats, depth and budget; equal budgets may complete different search depths.
+See [rules and evaluation](../nine-mens-morris/README.md).

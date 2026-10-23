@@ -37,8 +37,12 @@
 - [x] **Senet** — [Implemented](senet/README.md): modern five-piece teaching
   reconstruction, throwing sticks, protected neighbors, exchange captures,
   special houses, Human, Random, Heuristic, Expectiminimax, and pure Ollama.
-- [ ] **Ludus Coriovalli / Roman Blocking Games**.
-- [ ] **Nine Men’s Morris**.
+- [x] **Ludus Coriovalli / Roman Blocking Games** — [Implemented](ludus-coriovalli/README.md):
+  candidate four-dogs/two-hares reconstruction on joined diagonals, paired survival
+  rounds, Human, Random, Heuristic, plain Minimax, alpha-beta, and pure Ollama.
+- [x] **Nine Men’s Morris** — [Implemented](nine-mens-morris/README.md): 24-point
+  placement/sliding/flying game, protected mill captures, repetition/quiet draws,
+  Human, Random, Heuristic, plain Minimax, alpha-beta, and pure Ollama.
 - [ ] **Alquerque**.
 - [ ] **Checkers (Draughts)**.
 - [x] **Go-Moku (Five in a Row)** — [Implemented](gomoku/README.md): freestyle

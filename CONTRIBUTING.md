@@ -27,6 +27,8 @@ python3 scripts/test-go-tournament.py
 python3 scripts/test-pentago-tournament.py
 python3 scripts/test-gomoku-tournament.py
 python3 scripts/test-senet-tournament.py
+python3 scripts/test-coriovalli-tournament.py
+python3 scripts/test-morris-tournament.py
 python3 scripts/generate-pentalpha-crossed-circle-board.py --check
 python3 scripts/generate-heptalpha-board.py --check
 python3 scripts/test-audit-history.py
@@ -42,7 +44,7 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a dbus-run-session --
 
 Ollama protocol tests use a mock service; no model download is required. Local
 HTTP tests may skip when socket creation is blocked. Check the test log for
-skips before claiming full validation. CI runs all fifteen apps and the GUI tests on
+skips before claiming full validation. CI runs all seventeen apps and the GUI tests on
 Ubuntu with a virtual display.
 
 ## Games and algorithms
@@ -155,3 +157,17 @@ track. Preserve neighbor protection across row bends, exchanges, mandatory
 stop 26, water relocation, final-house exact exits, forced passes and stick
 probabilities 4:6:4:1:1. `scripts/test-senet-tournament.py` independently replays
 exported games. Tests and GUI must distinguish this ruleset from other reconstructions.
+
+Ludus Coriovalli uses the Ludii candidate graph with joined diagonals and no
+extensions (stable vertices A–J). Player identity differs from dog/hare role;
+round 2 exchanges roles while preserving controller identity. Keep immobilization
+of both hares, survival scores, capped rounds, and forced dog passes distinct.
+Minimax and alpha-beta retain only complete iterative search depths within the
+node budget; independent replay checks both seats and search algorithms.
+
+Nine Men’s Morris uses two 24-bit occupancy masks and compound placement/movement
+plus capture actions. Keep reserves in material-loss checks, require exactly one
+capture for a newly closed mill, and retain side-to-move-aware repetition history
+in search copies. Flying starts only after placement finishes. Depth counts
+complete turns. Preserve threefold/50-quiet-turn adjudication, draft capture
+cancellation, complete-iteration search retention, and independent CSV replay.

@@ -121,3 +121,11 @@ display wrapper to capture `royal-game-of-ur.png` from actual widgets.
 Senet: after `make GAME=senet test-ui`, run
 `senet/build-ui/screenshot screenshots` under the virtual display wrapper
 to capture `senet.png` from the actual application.
+
+Ludus Coriovalli: after `make GAME=ludus-coriovalli test-ui`, run
+`ludus-coriovalli/build-ui/screenshot screenshots` under the virtual display
+wrapper to capture `ludus-coriovalli.png` from the actual interface.
+
+Nine Men’s Morris: after `make GAME=nine-mens-morris test-ui`, run
+`nine-mens-morris/build-ui/screenshot screenshots` under the virtual display
+wrapper to capture `nine-mens-morris.png` from the actual interface.
