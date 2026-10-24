@@ -43,8 +43,13 @@
 - [x] **Nine Men’s Morris** — [Implemented](nine-mens-morris/README.md): 24-point
   placement/sliding/flying game, protected mill captures, repetition/quiet draws,
   Human, Random, Heuristic, plain Minimax, alpha-beta, and pure Ollama.
-- [ ] **Alquerque**.
-- [ ] **Checkers (Draughts)**.
+- [x] **Alquerque** — [Implemented](alquerque/README.md): 25-point free/directional
+  movement, compulsory complete jump chains, repetition/quiet draws, Human,
+  Random, Heuristic, plain Minimax, alpha-beta, pure Ollama, and seeded tournaments.
+- [x] **Checkers (Draughts)** — [Implemented](checkers/README.md): English and
+  Brazilian 8×8 variants, compulsory complete chains, short/flying kings,
+  promotion, simplified automatic draws, Human, Random, Heuristic, plain
+  Minimax, alpha-beta, pure Ollama, animated turns, and seeded tournaments.
 - [x] **Go-Moku (Five in a Row)** — [Implemented](gomoku/README.md): freestyle
   15×15, five or more wins, Human, Random, Heuristic, plain Minimax, alpha-beta,
   pure Ollama, animated placements, and replayable tournaments.

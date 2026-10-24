@@ -5,7 +5,7 @@ playing games. We may add more games and algorithms soon. Contributions are
 welcome—feel free to contribute new games, algorithms, experiments, or improvements.
 English is the primary language for project documentation and contributions.
 
-The repository currently contains seventeen independent GNOME applications written
+The repository currently contains nineteen independent GNOME applications written
 in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 
 - [Tic-Tac-Toe](tic-tac-toe/README.md): a 3×3 board, mouse and numeric keypad controls.
@@ -29,6 +29,10 @@ in C with GTK 4 and libadwaita, licensed under GPL-3.0-or-later:
 - [AI Games: Ludus Coriovalli](ludus-coriovalli/README.md): candidate Roman blocking-game reconstruction, four dogs versus two hares, paired survival rounds, plain Minimax, alpha-beta, and pure Ollama.
 
 - [AI Games: Nine Men’s Morris](nine-mens-morris/README.md): 24-point mill game with placement, sliding, flying, protected captures, Heuristic, plain Minimax, alpha-beta, and pure Ollama.
+
+- [AI Games: Alquerque](alquerque/README.md): 25-point capture game with free/directional movement, compulsory jump chains, Heuristic, plain Minimax, alpha-beta, and pure Ollama.
+
+- [AI Games: Checkers](checkers/README.md): English and Brazilian draughts, compulsory complete captures, kings and promotion, Human, Random, Heuristic, plain Minimax, alpha-beta, and pure Ollama.
 
 Each directory contains its own engine, interface, tests, Makefile, Meson
 project, installation resources, and license copy. Within this checkout, each application can be
@@ -81,6 +85,8 @@ make GAME=royal-game-of-ur run         # launch The Royal Game of Ur
 make GAME=senet run                    # launch Senet
 make GAME=ludus-coriovalli run          # launch Ludus Coriovalli
 make GAME=nine-mens-morris run          # launch Nine Men’s Morris
+make GAME=alquerque run                 # launch Alquerque
+make GAME=checkers run                  # launch Checkers
 make GAME=four-in-a-row                # build only Four in a Row
 make test                         # test all engines without a display
 make GAME=four-in-a-row test           # test one engine
@@ -145,7 +151,7 @@ addition to GTK and libadwaita. `make test-ollama` tests the clients;
 libraries. See each game's README for configuration, error handling, and
 history details.
 
-All seventeen games also offer an optional **Reasoning harness** (off by default):
+All nineteen games also offer an optional **Reasoning harness** (off by default):
 the selected model proposes a decision, then independently reviews it against the
 original position. This remains pure Ollama play and is mutually exclusive with
 tactical assistance. The messages window labels both stages. See the
@@ -200,6 +206,8 @@ Default output files are separate even when multiple games run in the same direc
 | Senet | `senet-history.md` | `senet-ollama.log` | `senet-ollama-error.log` |
 | Ludus Coriovalli | `ludus-coriovalli-history.md` | `ludus-coriovalli-ollama.log` | `ludus-coriovalli-ollama-error.log` |
 | Nine Men’s Morris | `nine-mens-morris-history.md` | `nine-mens-morris-ollama.log` | `nine-mens-morris-ollama-error.log` |
+| Alquerque | `alquerque-history.md` | `alquerque-ollama.log` | `alquerque-ollama-error.log` |
+| Checkers | `checkers-history.md` | `checkers-ollama.log` | `checkers-ollama-error.log` |
 
 Each JSON log entry also includes its game ID, and each saved game history
 heading includes its game name. Existing files keep their original names and

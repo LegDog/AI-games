@@ -80,7 +80,7 @@ gomoku/build/ollama-harness-eval --model=installed-model:tag --thinking \
   --revision="$(git rev-parse HEAD)" > results/gomoku-harness.jsonl
 ```
 
-Each game's `build/ollama-harness-eval` compares both modes on the **same** three
+Games with public fixtures expose `build/ollama-harness-eval`, comparing both modes on the **same** three
 public, deterministic fixtures, without mutating the source position. Use
 `--fixture=0`, `1`, or `2` to select one. `--url` overrides `OLLAMA_URL` and the
 normal localhost default. Each mode receives the same total deadline,
@@ -102,6 +102,8 @@ warmed runs rather than interpreting one pair as a latency benchmark.
 | Go | Empty, komi 7.5 | Two stones played | One pass played |
 | Pentago | Empty | Placement-only winning opportunity | Two complete rotating turns played |
 | Go-Moku | Empty | Immediate winning opportunity | Opponent threatens an immediate win |
+| Nine Men’s Morris | Opening | Mill/capture opportunity | Flying position |
+| Alquerque | Free-movement opening | Free-movement two-jump chain | Directional far-rank capture |
 
 JSONL rows contain model, revision, fixture, mode, settings, generation counts,
 legality/failure, elapsed microseconds, reported prompt/output token totals,
@@ -131,3 +133,12 @@ stability, stale-worker handling and the messages window.
 fixture listing, JSONL reports, counts and errors across all thirteen games
 using a deterministic mock service. It needs built application targets, local
 socket access, and no model downloads or external service.
+
+The fixture driver discovers games declaring `tests/harness-fixture.h` and
+requires their evaluation binaries to be built. Royal Game of Ur, Senet and
+Ludus Coriovalli currently have no standalone public fixture suites; they are
+reported separately rather than expected to supply missing executables.
+
+Checkers supplies three public fixtures: the English opening, a forced English
+multi-jump, and a Brazilian flying-king capture. Its direct and Propose/Review
+paths validate complete variant-legal turns, including maximum captures.

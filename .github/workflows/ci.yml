@@ -48,9 +48,11 @@ jobs:
           python3 scripts/test-senet-tournament.py
           python3 scripts/test-coriovalli-tournament.py
           python3 scripts/test-morris-tournament.py
+          python3 scripts/test-alquerque-tournament.py
+          python3 scripts/test-checkers-tournament.py
           python3 scripts/generate-heptalpha-board.py --check
           python3 scripts/generate-pentalpha-crossed-circle-board.py --check
-          desktop-file-validate four-in-a-row/data/*.desktop tic-tac-toe/data/*.desktop pentalpha/data/*.desktop heptalpha/data/*.desktop peg-solitaire/data/*.desktop pentalpha-crossed-circle/data/*.desktop reversi/data/*.desktop hex/data/*.desktop tavli/data/*.desktop sokoban/data/*.desktop go/data/*.desktop pentago/data/*.desktop gomoku/data/*.desktop royal-game-of-ur/data/*.desktop senet/data/*.desktop ludus-coriovalli/data/*.desktop nine-mens-morris/data/*.desktop
+          desktop-file-validate four-in-a-row/data/*.desktop tic-tac-toe/data/*.desktop pentalpha/data/*.desktop heptalpha/data/*.desktop peg-solitaire/data/*.desktop pentalpha-crossed-circle/data/*.desktop reversi/data/*.desktop hex/data/*.desktop tavli/data/*.desktop sokoban/data/*.desktop go/data/*.desktop pentago/data/*.desktop gomoku/data/*.desktop royal-game-of-ur/data/*.desktop senet/data/*.desktop ludus-coriovalli/data/*.desktop nine-mens-morris/data/*.desktop alquerque/data/*.desktop checkers/data/*.desktop
       - name: GUI tests and actual application screenshots
         run: |
           xvfb-run -a dbus-run-session -- make test-ui MESON_ARGS=-Dwerror=true
@@ -71,6 +73,8 @@ jobs:
           xvfb-run -a dbus-run-session -- senet/build-ui/screenshot screenshots
           xvfb-run -a dbus-run-session -- ludus-coriovalli/build-ui/screenshot screenshots
           xvfb-run -a dbus-run-session -- nine-mens-morris/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- alquerque/build-ui/screenshot screenshots
+          xvfb-run -a dbus-run-session -- checkers/build-ui/screenshot screenshots
           OLLAMA_VIEW_SCREENSHOT="$PWD/screenshots/ollama-messages.png" xvfb-run -a dbus-run-session -- hex/build-ui/test-ollama-view -p /ollama-view/lifecycle-worker-copy-stale
           OLLAMA_VIEW_SCREENSHOT="$PWD/screenshots/ollama-harness.png" xvfb-run -a dbus-run-session -- hex/build-ui/test-ollama-view -p /ollama-view/harness-stages
       - name: Upload screenshots

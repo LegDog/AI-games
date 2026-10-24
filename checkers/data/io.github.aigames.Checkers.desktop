@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Checkers
+Comment=Play English and Brazilian draughts and compare AI strategies
+Exec=checkers
+Icon=io.github.aigames.Checkers
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

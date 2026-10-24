@@ -177,3 +177,37 @@ individual movement turns without capture. Run `python3 scripts/test-morris-tour
 for independent coordinate-based replay and seed reproducibility. Record revision,
 seats, depth and budget; equal budgets may complete different search depths.
 See [rules and evaluation](../nine-mens-morris/README.md).
+
+## Alquerque
+
+```sh
+alquerque/build/tournament --variant=free --games 20 --seed 2026 --depth 3 --budget 50000
+alquerque/build/tournament --variant=directional --games 20 --seed 2026 --depth 3 --budget 50000 --swap
+python3 scripts/test-alquerque-tournament.py
+```
+
+Search plays Random; `--swap` exchanges seats, and `--plain` selects plain
+Minimax instead of alpha-beta. Compare both seats separately for each variant.
+CSV includes variant, seed, requested depth, node budget, algorithm, seats,
+winner (1/2 or 3 draw), termination reason, turn count and complete move chains.
+The independent replay checks forced captures, every jump, continuation,
+directional restrictions and threefold/50-turn draw adjudication. Seeds repeat
+within each configuration; shared RNG consumption may differ between algorithms
+when their completed search depths differ. Record the code revision with exports.
+See [rules, scoring and limits](../alquerque/README.md).
+
+## Checkers
+
+```sh
+checkers/build/tournament --variant=english --games=20 --seed=2026 --depth=3 --budget=50000
+checkers/build/tournament --variant=brazilian --games=20 --seed=2026 --depth=3 --swap
+checkers/build/tournament --variant=brazilian --games=20 --seed=2026 --depth=3 --plain
+python3 scripts/test-checkers-tournament.py
+```
+
+CSV records variant, seed, requested depth, budget, pruning mode, seats, result,
+termination and complete algebraic turns. Search plays Random; compare both seats
+and variants and retain the code revision. The runner shares its seeded RNG
+between controllers, so different completed depths may change subsequent ties.
+The independent validator replays 48 games and verifies repeated seeds.
+See [Checkers rules and limits](../checkers/README.md).

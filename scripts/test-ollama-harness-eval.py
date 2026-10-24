@@ -10,7 +10,10 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
-GAMES = (ROOT / "Makefile").read_text().split("GAMES := ")[1].splitlines()[0].split()
+ALL_GAMES = (ROOT / "Makefile").read_text().split("GAMES := ")[1].splitlines()[0].split()
+# Some newer apps have Ollama/harness controls but no standalone public fixtures.
+# Keep every declared fixture suite mandatory, including newly added games.
+GAMES = [game for game in ALL_GAMES if (ROOT / game / "tests/harness-fixture.h").is_file()]
 REQUESTS = []
 INVALID = False
 
@@ -65,6 +68,9 @@ def execute(binary, *args, expected=0):
 
 def main():
     global INVALID
+    without_fixtures = [game for game in ALL_GAMES if game not in GAMES]
+    if without_fixtures:
+        print("No standalone harness fixtures: " + ", ".join(without_fixtures))
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

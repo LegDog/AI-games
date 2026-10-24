@@ -129,3 +129,11 @@ wrapper to capture `ludus-coriovalli.png` from the actual interface.
 Nine Men’s Morris: after `make GAME=nine-mens-morris test-ui`, run
 `nine-mens-morris/build-ui/screenshot screenshots` under the virtual display
 wrapper to capture `nine-mens-morris.png` from the actual interface.
+
+Alquerque: after `make GAME=alquerque test-ui`, run
+`alquerque/build-ui/screenshot screenshots` under the virtual display wrapper
+to capture `alquerque.png` from the actual interface, showing a two-jump choice.
+
+Checkers: after `make GAME=checkers test-ui`, run
+`checkers/build-ui/screenshot screenshots` under the virtual display wrapper.
+`checkers.png` shows a Brazilian flying king and its legal capture landings.

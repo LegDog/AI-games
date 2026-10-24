@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Alquerque
+Comment=Compare strategies in two Alquerque movement variants
+Exec=alquerque
+Icon=io.github.aigames.Alquerque
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

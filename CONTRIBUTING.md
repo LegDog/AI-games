@@ -29,6 +29,8 @@ python3 scripts/test-gomoku-tournament.py
 python3 scripts/test-senet-tournament.py
 python3 scripts/test-coriovalli-tournament.py
 python3 scripts/test-morris-tournament.py
+python3 scripts/test-alquerque-tournament.py
+python3 scripts/test-checkers-tournament.py
 python3 scripts/generate-pentalpha-crossed-circle-board.py --check
 python3 scripts/generate-heptalpha-board.py --check
 python3 scripts/test-audit-history.py
@@ -44,7 +46,7 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a dbus-run-session --
 
 Ollama protocol tests use a mock service; no model download is required. Local
 HTTP tests may skip when socket creation is blocked. Check the test log for
-skips before claiming full validation. CI runs all seventeen apps and the GUI tests on
+skips before claiming full validation. CI runs all nineteen apps and the GUI tests on
 Ubuntu with a virtual display.
 
 ## Games and algorithms
@@ -171,3 +173,18 @@ capture for a newly closed mill, and retain side-to-move-aware repetition histor
 in search copies. Flying starts only after placement finishes. Depth counts
 complete turns. Preserve threefold/50-quiet-turn adjudication, draft capture
 cancellation, complete-iteration search retention, and independent CSV replay.
+
+Alquerque has two movement variants sharing compulsory captures and complete
+multi-jump turns. Keep dynamic legal-turn lists, immediate victim removal,
+directional home-rank restrictions, and threefold/50-quiet-turn adjudication in
+the engine. Partial human chains use preview state; search, Ollama, history and
+CSV use complete turns. `scripts/test-alquerque-tournament.py` independently
+replays both variants, both seats and both search algorithms.
+
+Checkers supports English and Brazilian draughts with complete-turn move lists.
+Brazilian chains require global maximum captures, deferred removal of blocking
+victims, and promotion only on the final square. Preserve kings, side to move,
+and repetition context in search copies. The simplified automatic draws use
+80/40 individual turns without capture or man movement, plus threefold repetition.
+Run `python3 scripts/test-checkers-tournament.py` for independent replay of both
+variants, both seats and both search algorithms.

@@ -1,0 +1,33 @@
+project('checkers','c',version:'1.0.0',license:'GPL-3.0-or-later',license_files:'COPYING',
+  default_options:['c_std=c11','warning_level=3'])
+glib=dependency('glib-2.0',version:'>=2.66',include_type:'system')
+math=meson.get_compiler('c').find_library('m',required:true)
+engine=static_library('game',['src/game.c','src/search.c','src/i18n.c'],dependencies:[glib,math])
+engine_dep=declare_dependency(link_with:engine,dependencies:[glib,math],include_directories:include_directories('src'))
+executable('tournament','src/runner.c',dependencies:engine_dep)
+test('game',executable('test-game','tests/test-game.c',dependencies:engine_dep))
+test('i18n',executable('test-i18n','tests/test-i18n.c',dependencies:engine_dep))
+if get_option('app')
+  gtk=dependency('gtk4',version:'>=4.10',include_type:'system')
+  adw=dependency('libadwaita-1',version:'>=1.4',include_type:'system')
+  soup=dependency('libsoup-3.0',version:'>=3.0',include_type:'system')
+  json=dependency('json-glib-1.0',version:'>=1.6',include_type:'system')
+  ollama=static_library('ollama',['../tools/ollama-events.c','../tools/ollama-harness.c','src/ollama.c'],dependencies:[engine_dep,soup,json])
+  ollama_dep=declare_dependency(link_with:ollama,dependencies:[engine_dep,soup,json])
+  viewer=static_library('ollama-view','../tools/ollama-view.c',dependencies:[ollama_dep,gtk,adw])
+  app_deps=[engine_dep,ollama_dep,gtk,adw]
+  app_dep=declare_dependency(link_with:viewer,dependencies:app_deps)
+  executable('checkers','src/main.c',dependencies:app_dep,install:true)
+  test('ollama',executable('test-ollama','tests/test-ollama.c',dependencies:ollama_dep))
+  if get_option('ui_tests')
+    executable('screenshot','tests/screenshot.c',dependencies:app_dep)
+    test('ui',executable('test-ui','tests/test-ui.c',dependencies:app_dep),timeout:60)
+  endif
+  install_data('data/io.github.aigames.Checkers.desktop',install_dir:get_option('datadir')/'applications')
+  install_data('data/io.github.aigames.Checkers.svg',install_dir:get_option('datadir')/'icons/hicolor/scalable/apps')
+endif
+
+if get_option('app')
+  executable('ollama-harness-eval','../tools/ollama-harness-eval.c',include_directories:include_directories('tests'),dependencies:ollama_dep)
+  test('ollama-harness-game',executable('test-ollama-harness-game','../tools/test-ollama-harness-game.c',include_directories:include_directories('tests'),c_args:['-DHARNESS_PURE'],dependencies:ollama_dep),timeout:60)
+endif
