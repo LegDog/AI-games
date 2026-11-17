@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := all
 
-GAMES := tic-tac-toe four-in-a-row pentalpha heptalpha peg-solitaire pentalpha-crossed-circle reversi hex tavli sokoban go pentago gomoku royal-game-of-ur senet ludus-coriovalli nine-mens-morris alquerque checkers
+GAMES := tic-tac-toe four-in-a-row pentalpha heptalpha peg-solitaire pentalpha-crossed-circle reversi hex tavli sokoban go pentago gomoku royal-game-of-ur senet ludus-coriovalli nine-mens-morris alquerque checkers fox-and-geese
 ifdef GAME
 ifeq ($(filter $(GAME),$(GAMES)),)
-$(error GAME must be tic-tac-toe, four-in-a-row, pentalpha, heptalpha, peg-solitaire, pentalpha-crossed-circle, reversi, hex, tavli, sokoban, go, pentago, gomoku, royal-game-of-ur, senet, ludus-coriovalli, nine-mens-morris, alquerque, or checkers)
+$(error GAME must be tic-tac-toe, four-in-a-row, pentalpha, heptalpha, peg-solitaire, pentalpha-crossed-circle, reversi, hex, tavli, sokoban, go, pentago, gomoku, royal-game-of-ur, senet, ludus-coriovalli, nine-mens-morris, alquerque, checkers, or fox-and-geese)
 endif
 SELECTED_GAMES := $(GAME)
 else
@@ -43,5 +43,6 @@ help:
 		'make GAME=nine-mens-morris run         # launch Nine Men’s Morris' \
 		'make GAME=alquerque run              # launch Alquerque' \
 		'make GAME=checkers run               # launch Checkers' \
+		'make GAME=fox-and-geese run          # launch Fox and Geese' \
 		'make -C four-in-a-row help: individual project options' \
 		'Build variables (PREFIX, MESON_ARGS, etc.) are forwarded to each project.'

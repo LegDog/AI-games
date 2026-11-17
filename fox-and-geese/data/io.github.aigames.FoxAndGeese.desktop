@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AI Games: Fox and Geese
+Comment=Play Fox and Geese and compare search strategies
+Exec=fox-and-geese
+Icon=io.github.aigames.FoxAndGeese
+Terminal=false
+Categories=Game;BoardGame;
+StartupNotify=true

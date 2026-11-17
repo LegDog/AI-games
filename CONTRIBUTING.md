@@ -31,6 +31,7 @@ python3 scripts/test-coriovalli-tournament.py
 python3 scripts/test-morris-tournament.py
 python3 scripts/test-alquerque-tournament.py
 python3 scripts/test-checkers-tournament.py
+python3 scripts/test-fox-geese-tournament.py
 python3 scripts/generate-pentalpha-crossed-circle-board.py --check
 python3 scripts/generate-heptalpha-board.py --check
 python3 scripts/test-audit-history.py
@@ -46,7 +47,7 @@ GDK_BACKEND=x11 GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a dbus-run-session --
 
 Ollama protocol tests use a mock service; no model download is required. Local
 HTTP tests may skip when socket creation is blocked. Check the test log for
-skips before claiming full validation. CI runs all nineteen apps and the GUI tests on
+skips before claiming full validation. CI runs all twenty apps and the GUI tests on
 Ubuntu with a virtual display.
 
 ## Games and algorithms
@@ -186,5 +187,12 @@ Brazilian chains require global maximum captures, deferred removal of blocking
 victims, and promotion only on the final square. Preserve kings, side to move,
 and repetition context in search copies. The simplified automatic draws use
 80/40 individual turns without capture or man movement, plus threefold repetition.
-Run `python3 scripts/test-checkers-tournament.py` for independent replay of both
+Run `python3 scripts/test-checkers-tournament.py
+python3 scripts/test-fox-geese-tournament.py` for independent replay of both
 variants, both seats and both search algorithms.
+
+Fox and Geese uses a 33-point cross and 64-bit masks. Only the fox captures;
+keep compulsory complete chains, geese direction by variant, the four-geese
+threshold, trapping, and exact side-aware repetition keys in the engine.
+The historical rules vary; the README specifies this implementation. Run
+`scripts/test-fox-geese-tournament.py` for independent coordinate-based replay.

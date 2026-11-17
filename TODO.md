@@ -53,6 +53,8 @@
 - [x] **Go-Moku (Five in a Row)** — [Implemented](gomoku/README.md): freestyle
   15×15, five or more wins, Human, Random, Heuristic, plain Minimax, alpha-beta,
   pure Ollama, animated placements, and replayable tournaments.
-- [ ] **Fox and Geese**, including traditional variants such as **Halatafl**.
+- [x] **Fox and Geese / Halatafl** — [Implemented](fox-and-geese/README.md):
+  33-point cross, 13/17-geese rulesets, compulsory complete fox jump chains,
+  Human, Random, Heuristic, plain Minimax, alpha-beta, pure Ollama, and seeded tournaments.
 - [ ] **Tafl Games (Viking Chess / Hnefatafl)**.
 - [ ] Kaooa (The Vulture and the Crows)

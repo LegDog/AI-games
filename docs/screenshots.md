@@ -137,3 +137,7 @@ to capture `alquerque.png` from the actual interface, showing a two-jump choice.
 Checkers: after `make GAME=checkers test-ui`, run
 `checkers/build-ui/screenshot screenshots` under the virtual display wrapper.
 `checkers.png` shows a Brazilian flying king and its legal capture landings.
+
+Fox and Geese: after `make GAME=fox-and-geese test-ui`, run
+`fox-and-geese/build-ui/screenshot screenshots` under the virtual display wrapper.
+`fox-and-geese.png` shows the actual Halatafl starting board.

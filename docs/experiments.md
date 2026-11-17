@@ -211,3 +211,17 @@ and variants and retain the code revision. The runner shares its seeded RNG
 between controllers, so different completed depths may change subsequent ties.
 The independent validator replays 48 games and verifies repeated seeds.
 See [Checkers rules and limits](../checkers/README.md).
+
+## Fox and Geese / Halatafl
+
+```sh
+make GAME=fox-and-geese
+fox-and-geese/build/tournament --variant halatafl --games 20 --seed 2026 --depth 3 --budget 50000
+fox-and-geese/build/tournament --variant seventeen --games 20 --seed 2026 --depth 3 --budget 50000 --swap --plain
+python3 scripts/test-fox-geese-tournament.py
+```
+
+Compare both asymmetric seats and both rulesets. CSV retains every complete fox
+jump chain, seed, algorithm, budget, result and termination reason. The independent
+Python replay verifies legal edges, goose direction, forced captures, threshold
+victories, trapping and draws. See [rules and limits](../fox-and-geese/README.md).
